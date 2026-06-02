@@ -9,13 +9,14 @@
 - All admin backend features must have all pages created with no TODOs left
 
 **Supported Login Methods (Phase 1)**:
-- Phone + OTP Verification Code (default, required)
-- Username + Password (when user explicitly requests username/password login)
+- Username + Password (default, required)
+- Email + Password (when user explicitly requests email/password login)
+- Phone + OTP: **NOT supported** (phone/SMS login is disabled in the international version)
 - Google SSO: **NOT supported in Phase 1** (requires `expo-auth-session` setup, planned for Phase 2)
 
 **Login method selection**:
-- **IMPORTANT**: When the user explicitly specifies a login method (e.g., phone-OTP, username-password), implement **ONLY** that method — do NOT add other methods alongside it.
-- No method specified → use phone + OTP (default)
+- **IMPORTANT**: When the user explicitly specifies a login method (e.g., username-password, email-password), implement **ONLY** that method — do NOT add other methods alongside it.
+- No method specified → use username + password (default)
 
 <AUTH_REQUIRED_ITEMS>
 **Required**:
@@ -37,11 +38,10 @@
    SECURITY DEFINER SET search_path = public
    AS $$
    BEGIN
-   INSERT INTO public.profiles (id, email, phone, role)
+   INSERT INTO public.profiles (id, email, role)
    VALUES (
      NEW.id,
      NEW.email,
-     NEW.phone,
      'user'::public.user_role
    );
    RETURN NEW;
@@ -64,12 +64,7 @@
 6. If roles/admin needed:
    - Admin creation strategy depends on the login method:
 
-   **A. Phone + OTP login (default)**:
-   - Do NOT auto-create admin accounts and do NOT generate any admin setup scripts — admin login requires a real phone number to receive OTP, which cannot be predetermined by the AI.
-   - Do NOT add a secondary username+password login entry to the login screen — keep the login UI as phone+OTP only.
-   - In the finish summary, instruct the user to register normally first, then promote to admin via Supabase Dashboard (see AUTH_FINISH_SUMMARY).
-
-   **B. Username + Password login (when user explicitly requests)**:
+   **A. Username + Password login (default)**:
    - AI must create one example admin account with a randomly generated, strong password (16+ chars, mixed case + digits + symbols). Never use simple passwords unless the user explicitly specifies one. Output the credentials in the finish summary.
    - **TIMING: Execute the three steps below immediately after the auth migration runs — do NOT defer to the end of the task. Context compression may cause this step to be skipped if left until later.**
    - Account creation flow (three-step, fully automated via script):
@@ -85,11 +80,33 @@
      ```sql
      UPDATE auth.users SET email_confirmed_at = NOW(), confirmed_at = NOW() WHERE email = '<username>@miaoda.com';
      ```
-     Step 3: Use the `supabase_execute_sql` tool to promote the user to admin (query by email, since username+password uses `username@miaoda.com` as email):
+     Step 3: Use the `supabase_execute_sql` tool to promote the user to admin:
      ```sql
      UPDATE public.profiles SET role = 'admin' WHERE email = '<username>@miaoda.com';
      ```
    - The script must be executed automatically as part of the setup; log the resulting credentials (username + password) to the console.
+
+   **B. Email + Password login (when user explicitly requests)**:
+   - AI must create one example admin account using a real email format and a randomly generated, strong password (16+ chars, mixed case + digits + symbols). Never use simple passwords unless the user explicitly specifies one. Output the credentials in the finish summary.
+   - **TIMING: Execute the three steps below immediately after the auth migration runs — do NOT defer to the end of the task.**
+   - Account creation flow (three-step, fully automated via script):
+     1. Register using the anon key: call `supabase.auth.signUp({ email, password })` with the normal client (anon key). This triggers `handle_new_user` to insert the profiles row with `role='user'`.
+     2. If email verification is enabled, use the `supabase_execute_sql` tool to bypass it. Skip this step if verification is already disabled.
+     3. Use the `supabase_execute_sql` tool to promote the user to admin in the profiles table.
+     Example script pattern:
+     ```javascript
+     // Step 1: Register with anon key
+     const { data: authData } = await supabase.auth.signUp({ email: `admin@example.com`, password });
+     ```
+     Step 2: If verification is enabled, use the `supabase_execute_sql` tool to bypass it:
+     ```sql
+     UPDATE auth.users SET email_confirmed_at = NOW(), confirmed_at = NOW() WHERE email = 'admin@example.com';
+     ```
+     Step 3: Use the `supabase_execute_sql` tool to promote the user to admin:
+     ```sql
+     UPDATE public.profiles SET role = 'admin' WHERE email = 'admin@example.com';
+     ```
+   - The script must be executed automatically as part of the setup; log the resulting credentials (email + password) to the console.
 
    **Common rules for both methods**:
    - After login, check the user's role from profiles and conditionally show admin navigation entries (e.g. an "Admin" tab or header icon). Do NOT create a separate admin login route — admin uses the same login screen as regular users, and the app routes by role after authentication.
@@ -126,43 +143,24 @@
      ```
 
 **Recommended**:
-1. Login must check `supabase_verification`; show phone verification UI if enabled
-2. If no verification is needed, auto-login after signup and navigate back
+1. If no verification is needed, auto-login after signup and navigate back
 </AUTH_REQUIRED_ITEMS>
 
 <AUTH_METHODS>
-**Username + Password** (when user explicitly requests):
+**Username + Password** (default):
 - Simulate email/password with `@miaoda.com` suffix: `username@miaoda.com`
 - Use `supabase_verification` tool to disable email verification
 - Only letters, digits, and `_` are allowed in usernames
 - Signup: `supabase.auth.signUp({ email: username + "@miaoda.com", password })`
 - Login: `supabase.auth.signInWithPassword({ email: username + "@miaoda.com", password })`
 
-**Phone + OTP**:
-```tsx
-// Step 1: Send OTP
-const { error } = await supabase.auth.signInWithOtp({
-  phone: "+86" + phoneNumber,
-});
+**Email + Password** (when user explicitly requests):
+- Use real email address directly (no suffix simulation)
+- Use `supabase_verification` tool to disable email verification if needed
+- Signup: `supabase.auth.signUp({ email, password })`
+- Login: `supabase.auth.signInWithPassword({ email, password })`
 
-// Step 2: Verify OTP
-const { data, error } = await supabase.auth.verifyOtp({
-  phone: "+86" + phoneNumber,
-  token: otpCode,
-  type: "sms",
-});
-```
-- Phone input: include country code selector (default +86)
-- OTP input: 6-digit code field with auto-focus between digits
-- Add countdown timer for resend button (typically 60 seconds)
-- **Engineering dependency**: Phone OTP requires SMS provider (Twilio) configured on Supabase instance
-- **CRITICAL — `sms-verification` plugin conflict**: The project scaffold may include a `sms-verification` plugin or component (e.g. `SmsVerification`, `useSmsCode`, `sendSmsCode`). This plugin manages its own SMS state and will conflict with Supabase OTP flow — both systems attempt to control the same verification lifecycle, causing double-sends, state desync, or silent failures.
-  - **NEVER** wire the `sms-verification` plugin into the phone login flow.
-  - If such a component exists in the codebase, do NOT import or call it from the login/register page. Build the OTP UI directly using only `supabase.auth.signInWithOtp()` and `supabase.auth.verifyOtp()`.
-
-**Phone + Password (verification ON)**:
-- Use `signUp({ phone, password })` to send OTP (password required)
-- Use `verifyOtp()` to complete registration
+**Phone + OTP**: **NOT supported** in the international version — do NOT implement phone login under any circumstances.
 </AUTH_METHODS>
 
 <AUTH_TOKEN_STORAGE>
@@ -205,7 +203,7 @@ const { data, error } = await supabase.auth.verifyOtp({
 
 <AUTH_TECH_LIMITS>
 **Tech Limits**:
-1. Unregistered users can't set roles; must register first via signUp. For username+password apps, the AI setup script uses the `supabase_execute_sql` tool to set admin role automatically. For phone+OTP apps, the user promotes accounts to admin via Supabase Dashboard after registration.
+1. Unregistered users can't set roles; must register first via signUp. The AI setup script uses the `supabase_execute_sql` tool to set admin role automatically for both username+password and email+password methods.
 2. Single account system; multi-device handled by roles
 3. Password changes/add accounts via Edge Functions (do not use trigger for auth→profiles)
 4. Do not insert into profiles directly; only trigger sync adds rows
@@ -223,14 +221,10 @@ const { data, error } = await supabase.auth.verifyOtp({
 <AUTH_FINISH_SUMMARY>
 **Finish Summary Requirements (MANDATORY)**:
 In the final reply to the user, you MUST include a summary section covering all applicable items:
-1. List all login methods implemented (e.g., username-password, phone OTP).
-2. Admin roles — depends on login method:
-   - **Username + Password**: output the admin account credentials (username + password) created by the setup script.
-   - **Phone + OTP**: instruct the user to promote an account to admin via Supabase Dashboard by changing profiles.role to 'admin'.
+1. List all login methods implemented (e.g., username-password, email-password).
+2. Admin roles: output the admin account credentials (username/email + password) created by the setup script.
 3. User Agreement & Privacy Policy: remind the user — "Please modify the User Agreement & Privacy Policy yourself to mitigate legal risks."
-4. Verification status:
-   - Phone OTP: inform the user that real SMS requires configuring an SMS provider (e.g. Twilio) in Supabase Dashboard → Authentication → Providers → Phone.
-   - Username+Password: if verification was disabled via `supabase_verification`, inform the user that verification is currently disabled and explain how to re-enable it.
+4. Verification status: if verification was disabled via `supabase_verification`, inform the user that verification is currently disabled and explain how to re-enable it.
 5. Any other manual steps the user must perform (Supabase Dashboard changes, environment variable settings, etc.).
 </AUTH_FINISH_SUMMARY>
 
