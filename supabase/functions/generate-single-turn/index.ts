@@ -12,6 +12,31 @@ interface RequestBody {
   jobDescription?: string;
 }
 
+// Max CV characters included in any prompt — keeps requests well under the
+// 150 s idle timeout even for very long uploaded CVs.
+const MAX_CV_CHARS = 4000;
+
+/** Trim the CV portion of an already-built prompt to MAX_CV_CHARS. */
+function truncateCV(prompt: string): string {
+  const marker = 'CV:\n';
+  const cvStart = prompt.indexOf(marker);
+  if (cvStart === -1) return prompt;
+
+  const cvBodyStart = cvStart + marker.length;
+  // Find next section separator after CV block
+  const nextSection = prompt.indexOf('\n\n', cvBodyStart);
+  const cvBody = nextSection === -1
+    ? prompt.slice(cvBodyStart)
+    : prompt.slice(cvBodyStart, nextSection);
+
+  if (cvBody.length <= MAX_CV_CHARS) return prompt;
+
+  const truncated = cvBody.slice(0, MAX_CV_CHARS) + '\n[CV truncated for length]';
+  return nextSection === -1
+    ? prompt.slice(0, cvBodyStart) + truncated
+    : prompt.slice(0, cvBodyStart) + truncated + prompt.slice(nextSection);
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -34,7 +59,10 @@ Deno.serve(async (req) => {
       throw new Error('Unauthorized');
     }
 
-    const { prompt, type, cvContent, jobDescription }: RequestBody = await req.json();
+    const { prompt: rawPrompt, type }: RequestBody = await req.json();
+
+    // Truncate CV content inside the prompt before sending to the model
+    const prompt = truncateCV(rawPrompt);
 
     let systemPrompt = '';
     if (type === 'cover_letter') {
@@ -71,6 +99,11 @@ Keep it concise and professional.`;
       throw new Error('OpenRouter API key not configured');
     }
 
+    // Only enable reasoning for cover_letter (complex, benefits from deeper
+    // thinking). ATS and cv_summary are faster without it and stay well within
+    // the 150 s edge-function idle timeout.
+    const useReasoning = type === 'cover_letter';
+
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -83,7 +116,7 @@ Keep it concise and professional.`;
           { role: 'system', content: systemPrompt },
           { role: 'user', content: prompt }
         ],
-        reasoning: { enabled: true }
+        ...(useReasoning ? { reasoning: { enabled: true } } : {}),
       }),
     });
 

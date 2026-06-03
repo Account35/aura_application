@@ -30,6 +30,14 @@ export function getTrialDaysRemaining(profile: Profile | null): number {
 }
 
 /**
+ * Returns true when plan_status is 'active' or NULL (NULL = legacy row created
+ * before the column existed, treated as active for backward compatibility).
+ */
+function isPlanActive(status: string | null | undefined): boolean {
+  return !status || status === 'active';
+}
+
+/**
  * Check if user has AI chat refinement access.
  * Cancelled plans retain access until expiry date.
  */
@@ -42,7 +50,7 @@ export function hasAIChatAccess(profile: Profile | null): boolean {
   if (profile.plan_status === 'cancelled' && profile.plan_renewal_date) {
     return new Date() < new Date(profile.plan_renewal_date);
   }
-  return profile.plan_status === 'active';
+  return isPlanActive(profile.plan_status);
 }
 
 /**
@@ -56,7 +64,7 @@ export function hasUnlimitedChat(profile: Profile | null): boolean {
   if (profile.plan_status === 'cancelled' && profile.plan_renewal_date) {
     return new Date() < new Date(profile.plan_renewal_date);
   }
-  return profile.plan_status === 'active';
+  return isPlanActive(profile.plan_status);
 }
 
 /**
@@ -93,7 +101,7 @@ export function hasATSAccess(profile: Profile | null): boolean {
   if (profile.plan_status === 'cancelled' && profile.plan_renewal_date) {
     return new Date() < new Date(profile.plan_renewal_date);
   }
-  return profile.plan_status === 'active';
+  return isPlanActive(profile.plan_status);
 }
 
 /**
@@ -107,7 +115,7 @@ export function canSeeATSReasons(profile: Profile | null): boolean {
   if (profile.plan_status === 'cancelled' && profile.plan_renewal_date) {
     return new Date() < new Date(profile.plan_renewal_date);
   }
-  return profile.plan_status === 'active';
+  return isPlanActive(profile.plan_status);
 }
 
 /**
@@ -159,7 +167,7 @@ export function hasLearningHubAccess(profile: Profile | null): boolean {
     if (profile.plan_status === 'cancelled' && profile.plan_renewal_date) {
       return new Date() < new Date(profile.plan_renewal_date);
     }
-    return profile.plan_status === 'active';
+    return isPlanActive(profile.plan_status);
   }
 
   // Pro users need an active (or cancelled-but-unexpired) Learning Hub add-on
