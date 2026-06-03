@@ -79,6 +79,16 @@ export interface ChatMessage {
   created_at: string;
 }
 
+export interface PersonalisedCV {
+  id: string;
+  user_id: string;
+  content: string;
+  job_title: string;
+  job_description: string;
+  cv_content: string;
+  created_at: string;
+}
+
 export interface PlanFeatures {
   name: string;
   price: string;

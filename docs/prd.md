@@ -3,18 +3,20 @@
 ## 1. Application Overview
 
 - **Application Name:** Aur.a
-- **Description:** Aur.a is a full-stack career tool that helps job seekers generate professional, tailored cover letters using AI. It provides ATS compatibility scoring, CV summarisation, an AI-powered chat panel for iterative cover letter refinement, and a Learning Hub with curated video content for career development. All AI capabilities are powered by OpenRouter.
+- **Description:** Aur.a is a full-stack career tool that helps job seekers generate professional, tailored cover letters and personalised CVs using AI. It provides ATS compatibility scoring, CV summarisation, an AI-powered chat panel for iterative cover letter refinement, background generation with persistent job tracking, and a Learning Hub with curated video content for career development. All AI capabilities are powered by OpenRouter.
 
 ---
 
 ## 2. Users & Use Cases
 
 ### 2.1 Target Users
-- Job seekers who need to produce professional cover letters quickly and efficiently.
+- Job seekers who need to produce professional cover letters and personalised CVs quickly and efficiently.
 - Users seeking career development resources through video learning content.
 
 ### 2.2 Core Use Cases
 - A user signs up, uploads their CV and a job description, and receives a tailored cover letter, an ATS score, and a CV summary.
+- A user generates a personalised CV tailored to a specific job description and downloads it as a PDF.
+- A user starts a generation, navigates to another page, and receives a notification when generation completes in the background.
 - A user refines their generated cover letter through a multi-turn AI chat panel.
 - A user reviews their past cover letter generations from the History page.
 - A user accesses Learning Hub to watch career development videos and track progress.
@@ -63,7 +65,7 @@ Applied universally across every page and component:
 - On logout, redirect to the Landing Page.
 
 ### 4.4 Data Scoping
-- All user data (cover letters, generation count, profile, Learning Hub progress, subscription status) must be strictly scoped to the authenticated user.
+- All user data (cover letters, personalised CVs, generation count, profile, Learning Hub progress, subscription status) must be strictly scoped to the authenticated user.
 
 ---
 
@@ -87,7 +89,7 @@ Applied universally across every page and component:
 }
 ```
 - Parse with response.json() and extract the message from result.choices[0].message.
-- Used for: cover letter generation, ATS score generation, CV summary generation.
+- Used for: cover letter generation, ATS score generation, CV summary generation, personalised CV generation.
 
 ### 5.3 Multi-Turn Call Pattern
 - Preserve the full message history array between calls.
@@ -130,7 +132,7 @@ Aur.a
 └── Authenticated App
     ├── Fixed Left Sidebar (navigation)
     ├── Dashboard (home)
-    ├── Generate Cover Letter
+    ├── Generate Cover Letter & Personalised CV
     ├── History
     ├── Learning Hub
     └── Settings
@@ -159,9 +161,9 @@ Aur.a
 
 | Plan | Price Display | Inclusions |
 |---|---|---|
-| Free | Free forever | 10 generations/month, manual editing only, no AI refinement, no ATS score access, no Learning Hub access |
-| Pro | R30 for 2 months or R300/year | Unlimited generations, 3 AI refinement chat messages per cover letter, ATS score visible with reasons blurred, Learning Hub add-on available at R50 for 2 months or R250/year |
-| Career Accelerator | R300/year | Unlimited generations, unlimited AI chat, full ATS score with reasons, Learning Hub add-on available at R100 for 2 months or R500/year |
+| Free | Free forever | 10 generations/month, manual editing only, no AI refinement, no ATS score access, no personalised CV generation, no Learning Hub access |
+| Pro | R30 for 2 months or R300/year | Unlimited generations, 3 AI refinement chat messages per cover letter, ATS score visible with reasons blurred, personalised CV generation, Learning Hub add-on available at R50 for 2 months or R250/year |
+| Career Accelerator | R300/year | Unlimited generations, unlimited AI chat, full ATS score with reasons, personalised CV generation, Learning Hub add-on available at R100 for 2 months or R500/year |
 
 - Each plan card has a button that routes to the Sign Up page.
 
@@ -196,6 +198,14 @@ Aur.a
 - Learning Hub nav item uses book or graduation cap icon, consistent with existing sidebar icons.
 - Learning Hub nav item is visible to all users regardless of access level.
 
+#### Persistent Generation Indicator
+- A floating indicator is displayed across all authenticated pages when any background generation job is running.
+- The indicator shows a spinner and text such as \"Generation in progress...\".
+- The indicator is visible regardless of which page the user is currently on.
+- When generation completes, the indicator updates to show \"Generation complete\" with a \"View Results\" button.
+- Clicking \"View Results\" navigates the user to the Generate page and displays the completed results.
+- The indicator dismisses automatically after the user views the results or manually closes it.
+
 ---
 
 ### 7.5 Dashboard (Home)
@@ -205,24 +215,33 @@ Aur.a
 
 ---
 
-### 7.6 Generate Cover Letter Page
+### 7.6 Generate Cover Letter & Personalised CV Page
+
+The page contains two tabs:
+1. Cover Letter (default)
+2. Personalised CV
+
+#### Tab 1: Cover Letter
 
 The flow proceeds through the following steps in order:
 
-#### Step 1 — CV Input
+**Step 1 — CV Input**
 - The user may either:
   - Upload their CV as a PDF file (text is extracted server-side), or
   - Paste their CV as plain text into a text area.
 
-#### Step 2 — Job Description Input
+**Step 2 — Job Description Input**
 - A text area where the user pastes the target job description.
 
-#### Step 3 — Generate
+**Step 3 — Generate**
 - The user clicks the \"Generate\" button.
 - The application sends the extracted CV content and the job description to OpenRouter using the single-turn pattern with a well-structured system prompt instructing the AI to write a tailored, professional cover letter.
+- Generation runs in the background. The user is not required to stay on the page.
+- A spinner is displayed on the page while generation is in progress.
+- The persistent floating indicator is displayed across all pages while generation is running.
 - Generation consumes one generation credit from the user's monthly count.
 
-#### Output Area (rendered after generation, in order):
+**Output Area (rendered after generation completes, in order):**
 
 **A. Cover Letter Card**
 - Displays the generated cover letter in a clean card.
@@ -244,6 +263,34 @@ The flow proceeds through the following steps in order:
 - The AI responds with a refined version or targeted edits.
 - Unlimited AI chat messages are available to all users during the trial period.
 - Every generated cover letter (including the initial generation) is saved to the database linked to the authenticated user.
+
+#### Tab 2: Personalised CV
+
+**Access Control**
+- Free users see a locked screen with a message stating they must upgrade to Pro or Career Accelerator to access personalised CV generation.
+- Pro and Career Accelerator users have full access.
+
+**Input Fields**
+- The user may either:
+  - Upload their existing CV as a PDF file (text is extracted server-side), or
+  - Paste their existing CV as plain text into a text area.
+- The user enters a job title.
+- The user pastes a job description.
+
+**Generate**
+- The user clicks the \"Generate\" button.
+- The application sends the CV content, job title, and job description to OpenRouter using the single-turn pattern with a system prompt instructing the AI to generate a fully restructured, ATS-optimised CV tailored to the job.
+- The generated CV includes standard ATS-friendly sections: Summary, Skills, Work Experience, Education, Certifications (if applicable).
+- Keywords from the job description are woven into the CV naturally.
+- Generation runs in the background. The user is not required to stay on the page.
+- A spinner is displayed on the page while generation is in progress.
+- The persistent floating indicator is displayed across all pages while generation is running.
+- Generation consumes one generation credit from the user's monthly count.
+
+**Output Area**
+- Displays the generated personalised CV in a clean card.
+- Includes a \"Download as PDF\" button that generates and downloads a well-formatted, professional PDF.
+- Every generated personalised CV is saved to the database linked to the authenticated user.
 
 ---
 
@@ -360,10 +407,18 @@ The flow proceeds through the following steps in order:
 | Rule | Detail |
 |---|---|
 | Trial period | All accounts (both new and existing) receive a 5-day trial period starting from the moment of sign-up, during which all premium features are unlocked. |
-| Trial features | During the trial period, users have access to: unlimited AI chat refinement, full ATS score with reasons visible, and all other premium features. |
+| Trial features | During the trial period, users have access to: unlimited AI chat refinement, full ATS score with reasons visible, personalised CV generation, and all other premium features. |
 | Generation count | All users (including trial users) have a monthly cap of 10 generations. Count resets at the start of each calendar month. |
+| Generation count scope | Both cover letter generation and personalised CV generation consume from the same monthly generation count. |
 | Generation enforcement | If a user has 0 remaining generations, the Generate button is disabled and a message is shown. |
-| Post-trial restrictions | After the 5-day trial expires, Free plan users lose access to AI chat refinement and full ATS score visibility (score number hidden, reasons hidden). |
+| Post-trial restrictions | After the 5-day trial expires, Free plan users lose access to AI chat refinement, full ATS score visibility (score number hidden, reasons hidden), and personalised CV generation. |
+| Background generation | When a user clicks Generate, the generation process runs in the background. The user can navigate to any other page without interrupting the generation. |
+| Generation status tracking | A persistent floating indicator is displayed across all authenticated pages while any background generation job is running. |
+| Generation completion notification | When generation completes, the floating indicator updates to show \"Generation complete\" with a \"View Results\" button. The user must manually click the button to view results. |
+| Generation cancellation | Generation can only be cancelled explicitly by the user. Navigating away from the Generate page does not cancel the generation. |
+| Inline results display | If the user is on the Generate page when generation completes, results are displayed inline immediately. |
+| Personalised CV access | Free users cannot access personalised CV generation. Pro and Career Accelerator users have full access. |
+| Personalised CV PDF | The generated personalised CV must be downloadable as a well-formatted, professional PDF. |
 | Learning Hub access - Free users | Cannot access Learning Hub at all. Clicking the nav item shows a locked screen with upgrade prompt. |
 | Learning Hub access - Pro users | Can unlock Learning Hub add-on at R50 for 2 months or R250/year. |
 | Learning Hub access - Career Accelerator users | Can unlock Learning Hub add-on at R100 for 2 months or R500/year. |
@@ -373,8 +428,9 @@ The flow proceeds through the following steps in order:
 | Video loading | Each category shows 10 videos initially. When all 10 marked as watched, automatically fetch 10 more. |
 | Progress tracking | Database tracks which videos each user has watched per category. Progress persists across sessions. |
 | API key security | OPENROUTER_API_KEY and SERPAPI_KEY must never appear in any client-side code, bundle, or network request visible to the browser. All API calls are made server-side. |
-| Data isolation | A user can only read and write their own cover letters, generation count, profile data, Learning Hub progress, and subscription status. |
+| Data isolation | A user can only read and write their own cover letters, personalised CVs, generation count, profile data, Learning Hub progress, and subscription status. |
 | Cover letter persistence | Every generation is saved immediately upon successful AI response. |
+| Personalised CV persistence | Every generated personalised CV is saved immediately upon successful AI response. |
 | Plan assignment | For this build, all users are assigned the Free plan by default with a 5-day trial period. |
 | Subscription cancellation | Users on paid plans can cancel their subscription at any time. Cancellation stops future recurring charges via Paystack API but does not immediately revoke access. |
 | Access after cancellation | Feature access control checks both plan_status and access expiry date. A user with plan_status=\"cancelled\" but unexpired expiry date retains identical feature access as an active subscriber on that plan. |
@@ -392,12 +448,19 @@ The flow proceeds through the following steps in order:
 | Job description field is empty on generate | Disable the Generate button until both CV content and job description are present. |
 | OpenRouter API returns an error or times out | Display a user-facing error message: \"Something went wrong generating your cover letter. Please try again.\" Do not expose raw API errors to the client. |
 | ATS or summary call fails independently | Display a fallback message in the respective section (e.g., \"ATS score unavailable at this time.\") without blocking the cover letter display. |
+| Background generation fails | Update the persistent floating indicator to show an error message: \"Generation failed. Please try again.\" Allow the user to dismiss the indicator. |
+| User navigates away during generation | Generation continues in the background. The persistent floating indicator remains visible across all pages. |
+| User closes browser during generation | Generation continues server-side. When the user returns and logs in, the persistent floating indicator shows the current status. |
+| Multiple generations triggered simultaneously | Queue generations and process them sequentially. Display the status of the current generation in the persistent floating indicator. |
+| User clicks \"View Results\" but results are not yet ready | Display a message: \"Generation is still in progress. Please wait.\" |
+| Personalised CV PDF generation fails | Display an error message: \"Unable to generate PDF. Please try again.\" |
 | SerpApi returns an error or times out | Display a user-facing error message: \"Unable to load videos at this time. Please try again later.\" |
 | SerpApi returns fewer than 10 videos | Display all available videos. Do not show error. |
-| Trial period expires | The system automatically restricts access to premium features (AI chat and full ATS score) based on the user's sign-up timestamp. |
+| Trial period expires | The system automatically restricts access to premium features (AI chat, full ATS score, personalised CV generation) based on the user's sign-up timestamp. |
 | User attempts to access authenticated routes while logged out | Redirect to the Login page. |
 | User attempts to access auth pages while already logged in | Redirect to the Dashboard. |
 | Free user clicks Learning Hub nav item | Show locked screen with upgrade prompt. |
+| Free user attempts to access Personalised CV tab | Show locked screen with upgrade prompt. |
 | Pro/Career Accelerator user without add-on clicks Learning Hub nav item | Show upgrade prompt with add-on pricing and Paystack payment button. |
 | Paystack payment fails | Display error message: \"Payment failed. Please try again or contact support.\" |
 | Settings update fails | Display an inline error message below the form. |
@@ -422,43 +485,59 @@ The flow proceeds through the following steps in order:
 8. The authenticated sidebar is visible and functional on all authenticated pages.
 9. The sidebar includes a Learning Hub nav item with book or graduation cap icon.
 10. The Dashboard displays the correct user name and remaining generation count.
-11. A user can upload a PDF or paste plain text as their CV.
-12. A user can paste a job description and click Generate to receive a cover letter, ATS score, and CV summary.
-13. The cover letter can be copied to clipboard and downloaded.
-14. During the 5-day trial period, all users (both new and existing) have access to unlimited AI chat refinement and full ATS score with reasons.
-15. The AI chat refinement panel sends multi-turn requests with full message history and reasoning_details preserved.
-16. Every generated cover letter is saved and appears in the History page.
-17. Clicking a history item displays the full cover letter.
-18. Free users clicking Learning Hub nav item see a locked screen with upgrade prompt.
-19. Pro/Career Accelerator users without Learning Hub add-on see an upgrade prompt with add-on pricing and Paystack payment button.
-20. Pro/Career Accelerator users with active Learning Hub add-on can access all Learning Hub features.
-21. Learning Hub displays five category tabs with correct default tab (Interview Preparation).
-22. Each category fetches 10 videos from SerpApi using the correct search query.
-23. Video cards display thumbnail, title, channel name, and \"Watch Now\" button.
-24. Clicking \"Watch Now\" opens video modal with YouTube embed.
-25. Video modal displays video title, channel name, and close button.
-26. Closing video modal prompts \"Mark as watched?\" and records response in database.
-27. Progress tracker displays correct percentage and watched count per category.
-28. When all 10 videos in a category are marked as watched, 10 more videos are automatically fetched.
-29. Paystack payment for Learning Hub add-on activates add-on immediately upon success.
-30. Add-on activation extends subscription renewal date by 3 weeks.
-31. Settings page displays base plan name, base plan renewal date, Learning Hub add-on status, and Learning Hub add-on renewal date (if active).
-32. A user can update their name and email from the Settings page.
-33. OPENROUTER_API_KEY and SERPAPI_KEY are never present in any client-side code or network request.
-34. The 10 generations per month limit is enforced for all users regardless of trial status.
-35. After the trial period expires, Free plan users lose access to AI chat and full ATS score visibility.
-36. The design system (colours, typography, card styles, button styles, input styles) is applied consistently across every page including Learning Hub.
-37. No mock data or placeholder responses exist anywhere in the application.
-38. Users on any paid plan see a \"Cancel Subscription\" button in the billing section of the Settings page.
-39. Clicking \"Cancel Subscription\" opens a confirmation modal with clear messaging about access retention until billing end date and the option to reinstate.
-40. Confirming cancellation cancels the recurring Paystack subscription, updates plan_status to \"cancelled\" in the database, and shows a success toast.
-41. Users with plan_status=\"cancelled\" and unexpired access retain full feature access identical to active subscribers on that plan.
-42. Users with plan_status=\"cancelled\" and unexpired access see a \"Reinstate Subscription\" button in the billing section.
-43. Clicking \"Reinstate Subscription\" opens a confirmation modal with clear messaging about resuming billing from the existing end date.
-44. Confirming reinstatement reactivates the Paystack subscription, updates plan_status to \"active\" in the database, and shows a success toast.
-45. All cancellation and reinstatement modals use the existing dark design system with accent violet on primary action buttons.
-46. All user-facing messages related to cancellation and reinstatement are clear, professional, and reassuring.
-47. Cancellation and reinstatement features do not break any existing functionality.
+11. The Generate page contains two tabs: Cover Letter and Personalised CV.
+12. A user can upload a PDF or paste plain text as their CV on both tabs.
+13. A user can paste a job description and click Generate to receive a cover letter, ATS score, and CV summary on the Cover Letter tab.
+14. A user can enter a job title, paste a job description, and click Generate to receive a personalised CV on the Personalised CV tab.
+15. The cover letter can be copied to clipboard and downloaded.
+16. The personalised CV can be downloaded as a well-formatted, professional PDF.
+17. During the 5-day trial period, all users (both new and existing) have access to unlimited AI chat refinement, full ATS score with reasons, and personalised CV generation.
+18. The AI chat refinement panel sends multi-turn requests with full message history and reasoning_details preserved.
+19. When a user clicks Generate, the generation process runs in the background.
+20. A persistent floating indicator is displayed across all authenticated pages while any background generation job is running.
+21. The floating indicator shows a spinner and text such as \"Generation in progress...\" while generation is running.
+22. When generation completes, the floating indicator updates to show \"Generation complete\" with a \"View Results\" button.
+23. Clicking \"View Results\" navigates the user to the Generate page and displays the completed results.
+24. If the user is on the Generate page when generation completes, results are displayed inline immediately.
+25. Navigating away from the Generate page does not cancel the generation.
+26. Every generated cover letter is saved and appears in the History page.
+27. Every generated personalised CV is saved to the database.
+28. Clicking a history item displays the full cover letter.
+29. Free users clicking Learning Hub nav item see a locked screen with upgrade prompt.
+30. Free users attempting to access Personalised CV tab see a locked screen with upgrade prompt.
+31. Pro/Career Accelerator users without Learning Hub add-on see an upgrade prompt with add-on pricing and Paystack payment button.
+32. Pro/Career Accelerator users with active Learning Hub add-on can access all Learning Hub features.
+33. Pro and Career Accelerator users have full access to personalised CV generation.
+34. Learning Hub displays five category tabs with correct default tab (Interview Preparation).
+35. Each category fetches 10 videos from SerpApi using the correct search query.
+36. Video cards display thumbnail, title, channel name, and \"Watch Now\" button.
+37. Clicking \"Watch Now\" opens video modal with YouTube embed.
+38. Video modal displays video title, channel name, and close button.
+39. Closing video modal prompts \"Mark as watched?\" and records response in database.
+40. Progress tracker displays correct percentage and watched count per category.
+41. When all 10 videos in a category are marked as watched, 10 more videos are automatically fetched.
+42. Paystack payment for Learning Hub add-on activates add-on immediately upon success.
+43. Add-on activation extends subscription renewal date by 3 weeks.
+44. Settings page displays base plan name, base plan renewal date, Learning Hub add-on status, and Learning Hub add-on renewal date (if active).
+45. A user can update their name and email from the Settings page.
+46. OPENROUTER_API_KEY and SERPAPI_KEY are never present in any client-side code or network request.
+47. The 10 generations per month limit is enforced for all users regardless of trial status.
+48. Both cover letter generation and personalised CV generation consume from the same monthly generation count.
+49. After the trial period expires, Free plan users lose access to AI chat, full ATS score visibility, and personalised CV generation.
+50. The design system (colours, typography, card styles, button styles, input styles) is applied consistently across every page including Learning Hub and the new Personalised CV tab.
+51. No mock data or placeholder responses exist anywhere in the application.
+52. Users on any paid plan see a \"Cancel Subscription\" button in the billing section of the Settings page.
+53. Clicking \"Cancel Subscription\" opens a confirmation modal with clear messaging about access retention until billing end date and the option to reinstate.
+54. Confirming cancellation cancels the recurring Paystack subscription, updates plan_status to \"cancelled\" in the database, and shows a success toast.
+55. Users with plan_status=\"cancelled\" and unexpired access retain full feature access identical to active subscribers on that plan.
+56. Users with plan_status=\"cancelled\" and unexpired access see a \"Reinstate Subscription\" button in the billing section.
+57. Clicking \"Reinstate Subscription\" opens a confirmation modal with clear messaging about resuming billing from the existing end date.
+58. Confirming reinstatement reactivates the Paystack subscription, updates plan_status to \"active\" in the database, and shows a success toast.
+59. All cancellation and reinstatement modals use the existing dark design system with accent violet on primary action buttons.
+60. All user-facing messages related to cancellation and reinstatement are clear, professional, and reassuring.
+61. Cancellation and reinstatement features do not break any existing functionality.
+62. Background generation and persistent job tracking features do not break any existing functionality.
+63. Personalised CV generation and PDF download features do not break any existing functionality.
 
 ---
 
@@ -481,3 +560,8 @@ The flow proceeds through the following steps in order:
 - Prorated refunds or partial billing adjustments for cancelled subscriptions.
 - Email notifications for cancellation or reinstatement actions.
 - Cancellation reason collection or feedback forms.
+- Manual cancellation of background generation jobs.
+- Real-time progress updates during generation (e.g., percentage complete).
+- Personalised CV templates or formatting options.
+- Editing or refining personalised CVs after generation.
+- History page for personalised CVs (separate from cover letters).

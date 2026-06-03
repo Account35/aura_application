@@ -46,6 +46,7 @@
     "embla-carousel-react": "^8.6.0",
     "eventsource-parser": "^3.0.6",
     "input-otp": "^1.4.2",
+    "jspdf": "^4.2.1",
     "ky": "^1.13.0",
     "lucide-react": "^0.576.0",
     "miaoda-auth-react": "2.0.6",

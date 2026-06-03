@@ -203,7 +203,7 @@ export async function countChatMessages(
 
 // Edge Function calls
 export async function generateSingleTurn(
-  type: 'cover_letter' | 'ats_score' | 'cv_summary',
+  type: 'cover_letter' | 'ats_score' | 'cv_summary' | 'personalised_cv',
   prompt: string
 ): Promise<string | null> {
   const { data, error } = await supabase.functions.invoke('generate-single-turn', {
@@ -438,6 +438,38 @@ export async function getPaystackPublicKey(): Promise<{ publicKey: string } | { 
   }
 
   return data as { publicKey: string } | { error: string } | null;
+}
+
+// ─── Personalised CV ──────────────────────────────────────────────────────────
+
+export async function createPersonalisedCV(
+  userId: string,
+  payload: {
+    content: string;
+    job_title: string;
+    job_description: string;
+    cv_content: string;
+  }
+): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('personalised_cvs')
+    .insert({ user_id: userId, ...payload });
+
+  if (error) {
+    console.error('Failed to save personalised CV:', error.message);
+    return null;
+  }
+
+  // Return ID via a secondary query to stay consistent with insert-without-select pattern
+  const { data: row } = await supabase
+    .from('personalised_cvs')
+    .select('id')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  return row?.id ?? null;
 }
 
 // ─── Subscription Cancellation / Reinstatement ────────────────────────────────

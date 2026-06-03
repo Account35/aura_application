@@ -5,6 +5,7 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Menu, Home, FileText, History, Settings, LogOut, BookOpen } from 'lucide-react';
 import { toast } from 'sonner';
 import { useState } from 'react';
+import GenerationIndicator from '@/components/common/GenerationIndicator';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -140,6 +141,9 @@ export default function Layout({ children }: LayoutProps) {
       <main className="flex-1 min-w-0 lg:ml-0 pt-16 lg:pt-0 overflow-x-hidden">
         <div className="container mx-auto p-6 max-w-7xl">{children}</div>
       </main>
+
+      {/* Persistent generation status indicator (shown across all pages) */}
+      <GenerationIndicator />
     </div>
   );
 }
