@@ -1,0 +1,87 @@
+/* stylelint-disable */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Inter font from Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+/* Aur.a Design System - Minimal Dark Theme
+ * Background: #0F172A (222 47% 11%)
+ * Surface/Card: #111827 (217 33% 12%)
+ * Border: #1F2937 (217 33% 17%)
+ * Primary Text: #F9FAFB (210 20% 98%)
+ * Secondary Text: #9CA3AF (220 9% 65%)
+ * Accent: #7C3AED (258 90% 58%)
+ */
+
+@layer base {
+  :root {
+    --radius: 0.75rem;
+    --background: 222 47% 11%;
+    --foreground: 210 20% 98%;
+    --card: 217 33% 12%;
+    --card-foreground: 210 20% 98%;
+    --popover: 217 33% 12%;
+    --popover-foreground: 210 20% 98%;
+    --primary: 258 90% 58%;
+    --primary-foreground: 210 20% 98%;
+    --secondary: 220 9% 65%;
+    --secondary-foreground: 210 20% 98%;
+    --muted: 217 33% 17%;
+    --muted-foreground: 220 9% 65%;
+    --accent: 258 90% 58%;
+    --accent-foreground: 210 20% 98%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 20% 98%;
+    --border: 217 33% 17%;
+    --input: 217 33% 17%;
+    --ring: 258 90% 58%;
+    --chart-1: 258 90% 58%;
+    --chart-2: 220 70% 50%;
+    --chart-3: 173 58% 39%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+    --sidebar-background: 217 33% 12%;
+    --sidebar-foreground: 210 20% 98%;
+    --sidebar-primary: 258 90% 58%;
+    --sidebar-primary-foreground: 210 20% 98%;
+    --sidebar-accent: 258 90% 58%;
+    --sidebar-accent-foreground: 210 20% 98%;
+    --sidebar-border: 217 33% 17%;
+    --sidebar-ring: 258 90% 58%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold tracking-tight;
+  }
+
+  h1 {
+    @apply text-4xl md:text-5xl;
+  }
+
+  h2 {
+    @apply text-3xl md:text-4xl;
+  }
+
+  h3 {
+    @apply text-2xl md:text-3xl;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
