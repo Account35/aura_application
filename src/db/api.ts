@@ -236,6 +236,22 @@ export async function generateMultiTurn(
   return data || null;
 }
 
+export async function generateGlobalChat(
+  messages: Array<{ role: string; content: string; reasoning_details?: any }>
+): Promise<{ content: string; reasoning_details?: any } | null> {
+  const { data, error } = await supabase.functions.invoke('global-chat', {
+    body: { messages },
+  });
+
+  if (error) {
+    const errorMsg = await error?.context?.text?.();
+    console.error('Edge function error in global-chat:', errorMsg || error?.message);
+    return null;
+  }
+
+  return data || null;
+}
+
 export async function extractPdfText(file: File): Promise<string | null> {
   const formData = new FormData();
   formData.append('file', file);

@@ -22,7 +22,7 @@ export default function GenerationIndicator() {
   };
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 max-w-[calc(100%-3rem)] md:max-w-sm animate-in slide-in-from-bottom-4 fade-in duration-300">
+    <div className="fixed bottom-20 right-6 z-50 max-w-[calc(100%-3rem)] md:max-w-sm animate-in slide-in-from-bottom-4 fade-in duration-300">
       <div className="bg-card border border-border rounded-xl px-4 py-3 flex items-center gap-3 shadow-lg">
         {/* Icon */}
         {status === 'running' && (

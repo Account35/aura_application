@@ -6,6 +6,7 @@ import { Menu, Home, FileText, History, Settings, LogOut, BookOpen } from 'lucid
 import { toast } from 'sonner';
 import { useState } from 'react';
 import GenerationIndicator from '@/components/common/GenerationIndicator';
+import ChatWidget from '@/components/common/ChatWidget';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -144,6 +145,9 @@ export default function Layout({ children }: LayoutProps) {
 
       {/* Persistent generation status indicator (shown across all pages) */}
       <GenerationIndicator />
+
+      {/* Global AI chat widget — visible on all authenticated pages */}
+      <ChatWidget />
     </div>
   );
 }

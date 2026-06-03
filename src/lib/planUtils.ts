@@ -90,7 +90,22 @@ export function getChatMessageLimit(profile: Profile | null): number | null {
 }
 
 /**
- * Check if user has access to ATS scoring.
+ * Check if user can generate personalised CVs.
+ * ONLY Career Accelerator users (active, trial, or cancelled-but-unexpired).
+ * Pro and Free users do NOT get this feature.
+ */
+export function hasPersonalisedCVAccess(profile: Profile | null): boolean {
+  if (!profile) return false;
+  if (isInTrial(profile)) return true;
+  if (profile.plan !== 'career_accelerator') return false;
+  if (profile.plan_status === 'cancelled' && profile.plan_renewal_date) {
+    return new Date() < new Date(profile.plan_renewal_date);
+  }
+  return isPlanActive(profile.plan_status);
+}
+
+/**
+ * Check if user has access to the ATS scoring feature.
  * Cancelled plans retain access until expiry date.
  */
 export function hasATSAccess(profile: Profile | null): boolean {
