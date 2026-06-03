@@ -11,17 +11,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import Layout from '@/components/layouts/Layout';
 import {
-  generateSingleTurn,
   generateMultiTurn,
   extractPdfText,
-  createCoverLetter,
   createChatMessage,
   getChatMessages,
   countChatMessages,
   updateProfileCV,
-  createPersonalisedCV,
 } from '@/db/api';
-import { supabase } from '@/db/supabase';
 import {
   Copy,
   Download,
@@ -191,48 +187,13 @@ export default function GeneratePage() {
       return;
     }
 
-    const snapshot = { cvContent, jobTitle, jobDescription };
-
-    generation.startGeneration('cover_letter', snapshot, async () => {
-      const prompt = `CV:\n${cvContent}\n\nJob Title:\n${jobTitle}\n\nJob Description:\n${jobDescription}\n\nGenerate a professional, tailored cover letter for this position.`;
-      const coverLetterContent = await generateSingleTurn('cover_letter', prompt);
-      if (!coverLetterContent) throw new Error('Failed to generate cover letter');
-
-      const atsPrompt = `CV:\n${cvContent}\n\nJob Title:\n${jobTitle}\n\nJob Description:\n${jobDescription}\n\nAnalyze ATS compatibility.`;
-      const atsResult = await generateSingleTurn('ats_score', atsPrompt);
-
-      let score: number | null = null;
-      let reasons: string[] = [];
-      if (atsResult) {
-        try {
-          const parsed = JSON.parse(atsResult);
-          score = parsed.score;
-          reasons = parsed.reasons || [];
-        } catch { /* ignore parse errors */ }
-      }
-
-      const summaryPrompt = `CV:\n${cvContent}\n\nProvide a brief summary.`;
-      const summary = (await generateSingleTurn('cv_summary', summaryPrompt)) || '';
-
-      const letterId = await createCoverLetter(user.id, {
-        content: coverLetterContent,
-        job_description: jobDescription,
-        cv_content: cvContent,
-        ats_score: score ?? undefined,
-        ats_reasons: reasons.join('\n'),
-        cv_summary: summary,
-      });
-
-      if (profile?.plan === 'free') {
-        await supabase.rpc('decrement_generation_count', { user_id: user.id });
-        await refreshProfile();
-      }
-
-      return {
-        type: 'cover_letter' as const,
-        data: { coverLetter: coverLetterContent, atsScore: score, atsReasons: reasons, cvSummary: summary, letterId: letterId ?? null },
-      };
-    });
+    // All async logic lives in the context — no component closure is captured.
+    generation.startCoverLetterGeneration(
+      { cvContent, jobTitle, jobDescription },
+      user.id,
+      profile?.plan !== 'free',
+      refreshProfile
+    );
 
     toast.info('Generation started — you can browse other pages while we work on it.');
   };
@@ -252,30 +213,13 @@ export default function GeneratePage() {
       return;
     }
 
-    const snapshot = { cvContent, jobTitle, jobDescription };
-
-    generation.startGeneration('personalised_cv', snapshot, async () => {
-      const prompt = `CV:\n${cvContent}\n\nJob Title:\n${jobTitle}\n\nJob Description:\n${jobDescription}\n\nCreate a personalised, ATS-optimised CV for this position.`;
-      const cvGenerated = await generateSingleTurn('personalised_cv', prompt);
-      if (!cvGenerated) throw new Error('Failed to generate personalised CV');
-
-      const cvId = await createPersonalisedCV(user.id, {
-        content: cvGenerated,
-        job_title: jobTitle,
-        job_description: jobDescription,
-        cv_content: cvContent,
-      });
-
-      if (profile?.plan === 'free') {
-        await supabase.rpc('decrement_generation_count', { user_id: user.id });
-        await refreshProfile();
-      }
-
-      return {
-        type: 'personalised_cv' as const,
-        data: { cvContent: cvGenerated, cvId: cvId ?? null },
-      };
-    });
+    // All async logic lives in the context — no component closure is captured.
+    generation.startPersonalisedCVGeneration(
+      { cvContent, jobTitle, jobDescription },
+      user.id,
+      profile?.plan !== 'free',
+      refreshProfile
+    );
 
     toast.info('Generation started — you can browse other pages while we work on it.');
   };
