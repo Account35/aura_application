@@ -59,19 +59,18 @@ Deno.serve(async (req) => {
 
   try {
     const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      throw new Error('Missing authorization header');
-    }
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: authHeader } } }
+      { global: { headers: authHeader ? { Authorization: authHeader } : {} } }
     );
 
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    if (userError || !user) {
-      throw new Error('Unauthorized');
+    if (authHeader) {
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        console.warn('User auth check failed for extract-pdf-text:', userError?.message || 'Unknown auth error');
+      }
     }
 
     const formData = await req.formData();
