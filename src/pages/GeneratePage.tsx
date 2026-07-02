@@ -44,7 +44,6 @@ export default function GeneratePage() {
   const [jobDescription, setJobDescription] = useState('');
   const [loading, setLoading] = useState(false);
   const [uploadError, setUploadError] = useState('');
-  const [showManualInput, setShowManualInput] = useState(false);
   const [uploadedFileName, setUploadedFileName] = useState('');
   const [usingSavedCV, setUsingSavedCV] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -107,7 +106,6 @@ export default function GeneratePage() {
     setUploadError('');
     setCvContent('');
     setUploadedFileName('');
-    setShowManualInput(false);
     setUsingSavedCV(false);
 
     if (file.type !== 'application/pdf') {
@@ -127,9 +125,8 @@ export default function GeneratePage() {
 
       if (!text || text.trim().length < 50) {
         setUploadError(
-          'Unable to extract text from your PDF. This may be a scanned image or have security restrictions.'
+          'Unable to extract text from your PDF. Please try another PDF file or upload a text-based version.'
         );
-        setShowManualInput(true);
         setLoading(false);
         return;
       }
@@ -141,15 +138,14 @@ export default function GeneratePage() {
       toast.success(`CV uploaded and saved (${text.length} characters)`);
     } catch (error: unknown) {
       const err = error as Error;
-      let msg = 'Unable to process your PDF. Try pasting the content instead.';
+      let msg = 'Unable to process your PDF. Please try another PDF file.';
       if (err.message?.includes('INSUFFICIENT_TEXT'))
-        msg = 'Your PDF appears empty or scanned as an image.';
+        msg = 'Your PDF appears empty or scanned as an image. Please upload a text-based PDF.';
       else if (err.message?.includes('INVALID_FILE_TYPE'))
         msg = 'Please upload a valid PDF file.';
       else if (err.message?.includes('FILE_TOO_LARGE'))
         msg = 'Your file is too large. Please compress to under 1MB.';
       setUploadError(msg);
-      setShowManualInput(true);
       setLoading(false);
     }
   };
@@ -299,11 +295,6 @@ export default function GeneratePage() {
                 <AlertDescription className="text-sm">
                   <p className="font-semibold mb-1">Upload Failed</p>
                   <p>{uploadError}</p>
-                  {showManualInput && (
-                    <p className="mt-2 text-xs">
-                      <strong>Solution:</strong> Paste your CV content in the text area below.
-                    </p>
-                  )}
                 </AlertDescription>
               </Alert>
             )}
@@ -318,37 +309,6 @@ export default function GeneratePage() {
               </Alert>
             )}
 
-            {showManualInput && (
-              <div className="space-y-2 pt-2 border-t border-border">
-                <Label htmlFor="cvManual" className="text-sm font-semibold">
-                  Manual CV Input (Fallback)
-                </Label>
-                <Textarea
-                  id="cvManual"
-                  placeholder="Paste or type your CV content here..."
-                  value={cvContent}
-                  onChange={(e) => {
-                    setCvContent(e.target.value);
-                    if (e.target.value.trim().length > 50) setUploadError('');
-                  }}
-                  rows={12}
-                  className="bg-muted border-border font-mono text-sm"
-                />
-                <p className="text-xs text-secondary">
-                  Copy and paste your CV content here if the PDF upload didn't work.
-                </p>
-              </div>
-            )}
-
-            {/* Always-visible manual paste toggle */}
-            {!showManualInput && (
-              <button
-                onClick={() => setShowManualInput(true)}
-                className="text-xs text-secondary hover:text-foreground underline underline-offset-2 transition-colors"
-              >
-                Prefer to paste text instead?
-              </button>
-            )}
           </CardContent>
         </Card>
 
