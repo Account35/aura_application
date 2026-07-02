@@ -183,11 +183,12 @@ export default function GeneratePage() {
   };
 
   const handleDownloadCoverLetter = () => {
-    const blob = new Blob([coverLetter], { type: 'text/plain' });
+    const content = coverLetter || 'Cover letter content is empty.';
+    const blob = new Blob([content], { type: 'application/msword' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `cover-letter-${Date.now()}.txt`;
+    a.download = `cover-letter-${Date.now()}.doc`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

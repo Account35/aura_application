@@ -48,7 +48,7 @@ export default function HistoryDetailPage() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `cover-letter-${new Date(coverLetter.created_at).toISOString().split('T')[0]}.txt`;
+      a.download = `cover-letter-${new Date(coverLetter.created_at).toISOString().split('T')[0]}.doc`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
