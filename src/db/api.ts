@@ -536,6 +536,46 @@ export async function createPersonalisedCV(
   return row?.id ?? null;
 }
 
+// ─── CV Builder ──────────────────────────────────────────────────────────────
+
+export async function getCVBuilderProfile(userId: string): Promise<{ data: any; generated_cv: string | null } | null> {
+  const { data, error } = await supabase
+    .from('cv_builder_profiles')
+    .select('data, generated_cv')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Error fetching CV builder profile:', error);
+    return null;
+  }
+  return data;
+}
+
+export async function upsertCVBuilderProfile(
+  userId: string,
+  cvData: any,
+  generatedCV?: string | null
+): Promise<boolean> {
+  const { error } = await supabase
+    .from('cv_builder_profiles')
+    .upsert(
+      {
+        user_id: userId,
+        data: cvData,
+        ...(generatedCV !== undefined ? { generated_cv: generatedCV } : {}),
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'user_id' }
+    );
+
+  if (error) {
+    console.error('Error saving CV builder profile:', error);
+    return false;
+  }
+  return true;
+}
+
 // ─── Subscription Cancellation / Reinstatement ────────────────────────────────
 // Implemented via Supabase RPC (SECURITY DEFINER) — no edge function needed.
 // The Paystack subscription code is not stored for current users, so the DB
