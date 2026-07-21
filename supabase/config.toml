@@ -1,2 +1,23 @@
 [auth.email]
 enable_confirmations = false
+
+[functions.paystack-plan-initialize]
+verify_jwt = false
+
+[functions.paystack-plan-upgrade]
+verify_jwt = false
+
+[functions.paystack-initialize]
+verify_jwt = false
+
+[functions.paystack-verify]
+verify_jwt = false
+
+[functions.paystack-config]
+verify_jwt = false
+
+[functions.paystack-cancel-subscription]
+verify_jwt = false
+
+[functions.paystack-reinstate-subscription]
+verify_jwt = false
