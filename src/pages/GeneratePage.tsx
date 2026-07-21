@@ -27,11 +27,21 @@ import {
 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   hasATSAccess,
   canSeeATSReasons,
   isInTrial,
   getTrialDaysRemaining,
+  hasPersonalisedCVAccess,
 } from '@/lib/planUtils';
+import { getCVBuilderProfile } from '@/db/api';
+import { formatCVBuilderDataAsText } from '@/pages/CVBuilderPage';
 
 export default function GeneratePage() {
   const { user, profile, refreshProfile } = useAuth();
@@ -46,6 +56,9 @@ export default function GeneratePage() {
   const [uploadError, setUploadError] = useState('');
   const [uploadedFileName, setUploadedFileName] = useState('');
   const [usingSavedCV, setUsingSavedCV] = useState(false);
+  const [cvSource, setCvSource] = useState<'saved' | 'upload'>('upload');
+  const [savedBuilderCVText, setSavedBuilderCVText] = useState('');
+  const [savedBuilderCVLoaded, setSavedBuilderCVLoaded] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ── Cover letter results (populated from context after background run) ─────
@@ -61,6 +74,25 @@ export default function GeneratePage() {
       setUsingSavedCV(true);
     }
   }, [profile]);
+
+  useEffect(() => {
+    if (!user || !hasPersonalisedCVAccess(profile)) {
+      setSavedBuilderCVText('');
+      setSavedBuilderCVLoaded(false);
+      return;
+    }
+
+    getCVBuilderProfile(user.id).then((saved) => {
+      const text = saved?.data ? formatCVBuilderDataAsText(saved.data) : '';
+      setSavedBuilderCVText(text);
+      setSavedBuilderCVLoaded(true);
+      if (text.trim()) {
+        setCvSource('saved');
+        setCvContent(text);
+        setUsingSavedCV(true);
+      }
+    });
+  }, [user, profile]);
 
   // ── Hydrate results from context when user returns to this page ───────────
   useEffect(() => {
@@ -107,6 +139,7 @@ export default function GeneratePage() {
     setCvContent('');
     setUploadedFileName('');
     setUsingSavedCV(false);
+    setCvSource('upload');
 
     if (file.type !== 'application/pdf') {
       setUploadError('Please upload a PDF file only.');
@@ -200,6 +233,8 @@ export default function GeneratePage() {
   const inTrial = isInTrial(profile);
   const trialDaysLeft = getTrialDaysRemaining(profile);
   const isRunning = generation.status === 'running';
+  const canUseCVBuilder = hasPersonalisedCVAccess(profile);
+  const savedBuilderReady = savedBuilderCVLoaded && savedBuilderCVText.trim().length > 0;
 
   const coverLetterInputsReady =
     cvContent.trim().length > 0 && jobTitle.trim().length > 0 && jobDescription.trim().length > 0;
@@ -239,13 +274,65 @@ export default function GeneratePage() {
           <CardHeader>
             <CardTitle className="text-2xl">Step 1: Your CV</CardTitle>
             <CardDescription className="text-base">
-              {usingSavedCV
+              {cvSource === 'saved'
+                ? 'Using your saved CV Builder profile for this cover letter.'
+                : usingSavedCV
                 ? 'Using your saved CV. Upload a new PDF to replace it.'
                 : "Upload your CV as a PDF file (max 1MB). It must be text-based, not a scanned image."}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {usingSavedCV && cvContent && (
+            {canUseCVBuilder && (
+              <div className="space-y-2">
+                <Label htmlFor="cvSource">CV Source</Label>
+                <Select
+                  value={cvSource}
+                  onValueChange={(value) => {
+                    const nextSource = value as 'saved' | 'upload';
+                    setCvSource(nextSource);
+                    setUploadError('');
+                    if (nextSource === 'saved') {
+                      setCvContent(savedBuilderCVText);
+                      setUsingSavedCV(true);
+                    } else {
+                      setCvContent(profile?.cv_content ?? '');
+                      setUsingSavedCV(Boolean(profile?.cv_content));
+                    }
+                  }}
+                >
+                  <SelectTrigger id="cvSource" className="bg-muted border-border">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="saved">Use My Saved CV</SelectItem>
+                    <SelectItem value="upload">Upload a CV File</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {cvSource === 'saved' && !savedBuilderReady && (
+              <Alert className="border-accent/50 bg-accent/10">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <span>Create your CV Builder profile before using saved CV details here.</span>
+                  <Button asChild variant="outline" size="sm">
+                    <a href="/cv-builder">Open CV Builder</a>
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {cvSource === 'saved' && savedBuilderReady && (
+              <Alert className="border-accent/50 bg-accent/10">
+                <CheckCircle2 className="h-4 w-4 text-accent" />
+                <AlertDescription>
+                  <span className="font-semibold">Saved CV Builder profile loaded</span> ({cvContent.length} characters)
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {cvSource === 'upload' && usingSavedCV && cvContent && (
               <Alert className="border-accent/50 bg-accent/10">
                 <CheckCircle2 className="h-4 w-4 text-accent" />
                 <AlertDescription>
@@ -254,43 +341,47 @@ export default function GeneratePage() {
               </Alert>
             )}
 
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".pdf"
-              onChange={handleFileUpload}
-              className="hidden"
-            />
+            {cvSource === 'upload' && (
+              <>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
 
-            <div className="flex flex-col gap-3">
-              <Button
-                variant="outline"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={loading}
-                size="lg"
-                className="w-full sm:w-auto"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Processing PDF...
-                  </>
-                ) : (
-                  <>
-                    <Upload className="w-4 h-4 mr-2" />
-                    {usingSavedCV ? 'Upload New CV' : cvContent ? 'Upload Different PDF' : 'Upload PDF'}
-                  </>
-                )}
-              </Button>
+                <div className="flex flex-col gap-3">
+                  <Button
+                    variant="outline"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={loading}
+                    size="lg"
+                    className="w-full sm:w-auto"
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Processing PDF...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-4 h-4 mr-2" />
+                        {usingSavedCV ? 'Upload New CV' : cvContent ? 'Upload Different PDF' : 'Upload PDF'}
+                      </>
+                    )}
+                  </Button>
 
-              {uploadedFileName && !uploadError && !usingSavedCV && (
-                <p className="text-sm text-secondary">
-                  <span className="font-medium">File:</span> {uploadedFileName}
-                </p>
-              )}
-            </div>
+                  {uploadedFileName && !uploadError && !usingSavedCV && (
+                    <p className="text-sm text-secondary">
+                      <span className="font-medium">File:</span> {uploadedFileName}
+                    </p>
+                  )}
+                </div>
+              </>
+            )}
 
-            {uploadError && (
+            {cvSource === 'upload' && uploadError && (
               <Alert className="border-destructive/50 bg-destructive/10">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription className="text-sm">
@@ -300,7 +391,7 @@ export default function GeneratePage() {
               </Alert>
             )}
 
-            {cvContent && !uploadError && !usingSavedCV && (
+            {cvSource === 'upload' && cvContent && !uploadError && !usingSavedCV && (
               <Alert className="border-accent/50 bg-accent/10">
                 <CheckCircle2 className="h-4 w-4 text-accent" />
                 <AlertDescription className="text-sm">
@@ -488,4 +579,3 @@ export default function GeneratePage() {
     </Layout>
   );
 }
-

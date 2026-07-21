@@ -89,6 +89,65 @@ export interface PersonalisedCV {
   created_at: string;
 }
 
+export interface CVWorkExperience {
+  id: string;
+  jobTitle: string;
+  companyName: string;
+  startDate: string;
+  endDate: string;
+  currentlyWorking: boolean;
+  responsibilities: string;
+}
+
+export interface CVEducation {
+  id: string;
+  qualificationName: string;
+  institutionName: string;
+  yearCompleted: string;
+  achievements: string;
+}
+
+export interface CVCertification {
+  id: string;
+  name: string;
+  issuingOrganisation: string;
+  dateObtained: string;
+}
+
+export interface CVReference {
+  id: string;
+  name: string;
+  relationship: string;
+  contactNumber: string;
+}
+
+export interface CVBuilderData {
+  personalDetails: {
+    fullName: string;
+    phoneNumber: string;
+    emailAddress: string;
+    cityProvince: string;
+    targetJobTitle: string;
+  };
+  personalSummary: string;
+  workExperience: CVWorkExperience[];
+  education: CVEducation[];
+  skills: {
+    technical: string;
+    soft: string;
+  };
+  certifications: CVCertification[];
+  references: CVReference[];
+}
+
+export interface CVBuilderProfile {
+  user_id: string;
+  data: CVBuilderData;
+  generated_cv: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface PlanFeatures {
   name: string;
   price: string;

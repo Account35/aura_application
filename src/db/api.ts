@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import type { Profile, CoverLetter, ChatMessage } from '@/types/types';
+import type { Profile, CoverLetter, ChatMessage, CVBuilderData, CVBuilderProfile } from '@/types/types';
 
 // Profile operations
 export async function getProfile(userId: string): Promise<Profile | null> {
@@ -201,9 +201,57 @@ export async function countChatMessages(
   return count || 0;
 }
 
+// CV Builder operations
+export async function getCVBuilderProfile(userId: string): Promise<CVBuilderProfile | null> {
+  const { data, error } = await supabase
+    .from('cv_builder_profiles')
+    .select('*')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Error fetching CV builder profile:', error);
+    return null;
+  }
+
+  return data as CVBuilderProfile | null;
+}
+
+export async function upsertCVBuilderProfile(
+  userId: string,
+  data: CVBuilderData,
+  generatedCV?: string | null
+): Promise<boolean> {
+  const payload: {
+    user_id: string;
+    data: CVBuilderData;
+    updated_at: string;
+    generated_cv?: string | null;
+  } = {
+    user_id: userId,
+    data,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (generatedCV !== undefined) {
+    payload.generated_cv = generatedCV;
+  }
+
+  const { error } = await supabase
+    .from('cv_builder_profiles')
+    .upsert(payload, { onConflict: 'user_id' });
+
+  if (error) {
+    console.error('Error saving CV builder profile:', error);
+    return false;
+  }
+
+  return true;
+}
+
 // Edge Function calls
 export async function generateSingleTurn(
-  type: 'cover_letter' | 'ats_score' | 'cv_summary' | 'personalised_cv',
+  type: 'cover_letter' | 'ats_score' | 'cv_summary' | 'personalised_cv' | 'cv_builder',
   prompt: string
 ): Promise<string | null> {
   const { data, error } = await supabase.functions.invoke('generate-single-turn', {

@@ -99,3 +99,126 @@ export function downloadCVAsPDF(cvText: string, jobTitle: string): void {
   const safeTitle = jobTitle.replace(/[^a-z0-9]/gi, '-').toLowerCase();
   doc.save(`personalised-cv-${safeTitle}.pdf`);
 }
+
+function safeFilePart(value: string): string {
+  return value.replace(/[^a-z0-9]/gi, '-').replace(/-+/g, '-').toLowerCase() || 'cv';
+}
+
+export function downloadATSReadableCVAsPDF(cvText: string, fileNameBase: string): void {
+  const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 54;
+  const contentWidth = pageWidth - margin * 2;
+  let y = margin;
+
+  const ensureSpace = (height: number) => {
+    if (y + height <= pageHeight - margin) return;
+    doc.addPage();
+    y = margin;
+  };
+
+  cvText.split('\n').forEach((rawLine, index) => {
+    const line = rawLine.trimEnd();
+    const trimmed = line.trim();
+    const isName = index === 0 && trimmed.length > 0;
+    const isHeading =
+      trimmed.length > 3 &&
+      trimmed === trimmed.toUpperCase() &&
+      !trimmed.startsWith('-') &&
+      !trimmed.includes('@');
+
+    if (!trimmed) {
+      y += 8;
+      return;
+    }
+
+    if (isName) {
+      ensureSpace(28);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(18);
+      doc.setTextColor(20, 20, 20);
+      doc.text(trimmed, margin, y);
+      y += 18;
+      return;
+    }
+
+    if (isHeading) {
+      ensureSpace(30);
+      y += 8;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.setTextColor(20, 20, 20);
+      doc.text(trimmed, margin, y);
+      y += 5;
+      doc.setDrawColor(120, 120, 120);
+      doc.setLineWidth(0.6);
+      doc.line(margin, y, pageWidth - margin, y);
+      y += 13;
+      return;
+    }
+
+    doc.setFont('helvetica', trimmed.endsWith(':') ? 'bold' : 'normal');
+    doc.setFontSize(10);
+    doc.setTextColor(30, 30, 30);
+    const wrapped = doc.splitTextToSize(line, contentWidth);
+    wrapped.forEach((wrappedLine: string) => {
+      ensureSpace(14);
+      doc.text(wrappedLine, margin, y);
+      y += 14;
+    });
+  });
+
+  doc.save(`${safeFilePart(fileNameBase)}.pdf`);
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+export function downloadATSReadableCVAsWord(cvText: string, fileNameBase: string): void {
+  const lines = cvText.split('\n');
+  const body = lines
+    .map((line, index) => {
+      const trimmed = line.trim();
+      if (!trimmed) return '<p class="gap">&nbsp;</p>';
+      if (index === 0) return `<h1>${escapeHtml(trimmed)}</h1>`;
+      const isHeading =
+        trimmed.length > 3 &&
+        trimmed === trimmed.toUpperCase() &&
+        !trimmed.startsWith('-') &&
+        !trimmed.includes('@');
+      if (isHeading) return `<h2>${escapeHtml(trimmed)}</h2>`;
+      return `<p>${escapeHtml(line)}</p>`;
+    })
+    .join('');
+
+  const html = `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+body { font-family: Arial, sans-serif; color: #111111; line-height: 1.35; }
+h1 { font-size: 20pt; margin: 0 0 6pt; }
+h2 { font-size: 11pt; margin: 14pt 0 6pt; border-bottom: 1pt solid #777777; padding-bottom: 3pt; }
+p { font-size: 10pt; margin: 0 0 4pt; white-space: pre-wrap; }
+.gap { margin-bottom: 6pt; }
+</style>
+</head>
+<body>${body}</body>
+</html>`;
+
+  const blob = new Blob([html], { type: 'application/msword;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `${safeFilePart(fileNameBase)}.doc`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}

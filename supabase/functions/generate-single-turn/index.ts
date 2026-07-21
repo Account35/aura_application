@@ -14,7 +14,7 @@ const buildCorsHeaders = (req: Request) => {
 
 interface RequestBody {
   prompt: string;
-  type: 'cover_letter' | 'ats_score' | 'cv_summary' | 'personalised_cv';
+  type: 'cover_letter' | 'ats_score' | 'cv_summary' | 'personalised_cv' | 'cv_builder';
   cvContent?: string;
   jobDescription?: string;
 }
@@ -134,6 +134,26 @@ ADDITIONAL RULES:
 - Keep tone professional, confident, and results-oriented
 - Remove irrelevant experience; emphasise what is most relevant to this role
 - Do NOT include personal details like ID number, marital status, or religion`;
+    } else if (type === 'cv_builder') {
+      systemPrompt = `You are an expert South African CV writer and ATS optimisation specialist. Produce a clean, professional, ATS-readable CV tailored to the candidate's target job title.
+
+CRITICAL OUTPUT RULES:
+- Output plain text only. No markdown, no tables, no columns, no text boxes, no icons, no graphics, and no decorative elements.
+- Start directly with the candidate's full name on the first line.
+- Put contact details on one single line below the name.
+- Use this exact section order and uppercase headings: PERSONAL SUMMARY, EXPERIENCE, EDUCATION, SKILLS, CERTIFICATIONS AND ACHIEVEMENTS, REFERENCES.
+- Put each section heading on its own line.
+- Use plain hyphen bullet points only under work experience.
+- Do not invent employers, qualifications, dates, certifications, reference contact details, or personal facts.
+- Rewrite the personal summary to align with the target job title.
+- Emphasise the most relevant experience and skills for the target job title.
+- Use strong action verbs and natural ATS keywords for the target job title.
+
+ENTRY FORMAT RULES:
+- Experience: job title on one line, company name and dates on the next line, then bullets.
+- Education: qualification name on one line, institution and year on the next line.
+- Skills: plain text lists, readable by ATS software.
+- References: include only supplied reference details.`;
     }
 
     const openRouterKey = Deno.env.get('OPENROUTER_API_KEY');
@@ -144,7 +164,7 @@ ADDITIONAL RULES:
     // Only enable reasoning for cover_letter and personalised_cv (complex, benefits
     // from deeper thinking). ATS and cv_summary are faster without it and stay
     // well within the 150 s edge-function idle timeout.
-    const useReasoning = type === 'cover_letter' || type === 'personalised_cv';
+    const useReasoning = type === 'cover_letter' || type === 'personalised_cv' || type === 'cv_builder';
 
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',

@@ -2,7 +2,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { Menu, Home, FileText, History, Settings, LogOut, BookOpen } from 'lucide-react';
+import { Menu, Home, FileText, History, Settings, LogOut, BookOpen, FilePenLine } from 'lucide-react';
 import { toast } from 'sonner';
 import { useState } from 'react';
 import GenerationIndicator from '@/components/common/GenerationIndicator';
@@ -15,6 +15,7 @@ interface LayoutProps {
 const navigation = [
   { name: 'Dashboard', path: '/dashboard', icon: Home },
   { name: 'Generate Cover Letter', path: '/generate', icon: FileText },
+  { name: 'CV Builder', path: '/cv-builder', icon: FilePenLine },
   { name: 'History', path: '/history', icon: History },
   { name: 'Learning Hub', path: '/learning-hub', icon: BookOpen },
   { name: 'Settings', path: '/settings', icon: Settings },

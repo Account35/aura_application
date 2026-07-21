@@ -3,6 +3,7 @@ import LoginPage from './pages/LoginPage';
 import SignUpPage from './pages/SignUpPage';
 import DashboardPage from './pages/DashboardPage';
 import GeneratePage from './pages/GeneratePage';
+import CVBuilderPage from './pages/CVBuilderPage';
 import HistoryPage from './pages/HistoryPage';
 import HistoryDetailPage from './pages/HistoryDetailPage';
 import SettingsPage from './pages/SettingsPage';
@@ -47,6 +48,11 @@ const routes: RouteConfig[] = [
     name: 'Generate Cover Letter',
     path: '/generate',
     element: <GeneratePage />,
+  },
+  {
+    name: 'CV Builder',
+    path: '/cv-builder',
+    element: <CVBuilderPage />,
   },
   {
     name: 'History',
