@@ -108,66 +108,141 @@ export function downloadATSReadableCVAsPDF(cvText: string, fileNameBase: string)
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
-  const margin = 54;
+  const margin = 40;
   const contentWidth = pageWidth - margin * 2;
-  let y = margin;
+  const lineHeight = 15.6; // ~13px * 1.6 line-height in pt
+  let y = margin + 16;
 
   const ensureSpace = (height: number) => {
     if (y + height <= pageHeight - margin) return;
     doc.addPage();
-    y = margin;
+    y = margin + 16;
   };
 
-  cvText.split('\n').forEach((rawLine, index) => {
-    const line = rawLine.trimEnd();
-    const trimmed = line.trim();
-    const isName = index === 0 && trimmed.length > 0;
-    const isHeading =
-      trimmed.length > 3 &&
-      trimmed === trimmed.toUpperCase() &&
-      !trimmed.startsWith('-') &&
-      !trimmed.includes('@');
+  const isHeadingLine = (t: string) =>
+    t.length > 3 &&
+    t === t.toUpperCase() &&
+    !t.startsWith('-') &&
+    !t.startsWith('\u2022') &&
+    !t.includes('@');
 
-    if (!trimmed) {
-      y += 8;
-      return;
-    }
+  const lines = cvText.split('\n');
 
-    if (isName) {
+  // Line 0: Full name — centered, bold, 22pt
+  const nameLine = lines[0]?.trim() ?? '';
+  if (nameLine) {
+    ensureSpace(28);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(22);
+    doc.setTextColor(0, 0, 0);
+    doc.text(nameLine, pageWidth / 2, y, { align: 'center' });
+    y += 20;
+  }
+
+  // Line 1: Contact line — centered, regular, 11pt
+  const contactLine = lines[1]?.trim() ?? '';
+  if (contactLine) {
+    ensureSpace(16);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(11);
+    doc.setTextColor(0, 0, 0);
+    doc.text(contactLine, pageWidth / 2, y, { align: 'center' });
+    y += 10;
+  }
+
+  // Top divider
+  doc.setDrawColor(180, 180, 180);
+  doc.setLineWidth(0.5);
+  doc.line(margin, y, pageWidth - margin, y);
+  y += 12;
+
+  for (let i = 2; i < lines.length; i++) {
+    const trimmed = lines[i].trim();
+
+    if (!trimmed) continue;
+
+    if (isHeadingLine(trimmed)) {
       ensureSpace(28);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(18);
-      doc.setTextColor(20, 20, 20);
-      doc.text(trimmed, margin, y);
-      y += 18;
-      return;
-    }
-
-    if (isHeading) {
-      ensureSpace(30);
       y += 8;
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(11);
-      doc.setTextColor(20, 20, 20);
+      doc.setTextColor(0, 0, 0);
       doc.text(trimmed, margin, y);
-      y += 5;
-      doc.setDrawColor(120, 120, 120);
-      doc.setLineWidth(0.6);
+      y += 4;
+      doc.setDrawColor(180, 180, 180);
+      doc.setLineWidth(0.5);
       doc.line(margin, y, pageWidth - margin, y);
-      y += 13;
-      return;
+      y += 10;
+      continue;
     }
 
-    doc.setFont('helvetica', trimmed.endsWith(':') ? 'bold' : 'normal');
-    doc.setFontSize(10);
-    doc.setTextColor(30, 30, 30);
-    const wrapped = doc.splitTextToSize(line, contentWidth);
-    wrapped.forEach((wrappedLine: string) => {
-      ensureSpace(14);
-      doc.text(wrappedLine, margin, y);
-      y += 14;
-    });
-  });
+    // Bullet point
+    if (trimmed.startsWith('-') || trimmed.startsWith('\u2022')) {
+      const bulletText = trimmed.replace(/^[-\u2022]\s*/, '');
+      ensureSpace(lineHeight);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(11);
+      doc.setTextColor(0, 0, 0);
+      const wrapped = doc.splitTextToSize(`\u2022 ${bulletText}`, contentWidth - 16);
+      for (const wl of wrapped) {
+        ensureSpace(lineHeight);
+        doc.text(wl, margin + 12, y);
+        y += lineHeight;
+      }
+      continue;
+    }
+
+    // Entry header with right-aligned date
+    const datePattern = /(\d{4}|Present|present)/;
+    const nextTrimmed = lines[i + 1]?.trim() ?? '';
+    const nextIsSubLine =
+      nextTrimmed &&
+      !isHeadingLine(nextTrimmed) &&
+      !nextTrimmed.startsWith('-') &&
+      !nextTrimmed.startsWith('\u2022');
+
+    if (datePattern.test(trimmed) && nextIsSubLine) {
+      ensureSpace(lineHeight * 2 + 4);
+      y += 4;
+      const match = trimmed.match(/^(.+?)\s{2,}(.+)$/);
+      if (match) {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.setTextColor(0, 0, 0);
+        doc.text(match[1].trim(), margin, y);
+        doc.setFont('helvetica', 'normal');
+        doc.text(match[2].trim(), pageWidth - margin, y, { align: 'right' });
+      } else {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.setTextColor(0, 0, 0);
+        doc.text(trimmed, margin, y);
+      }
+      y += lineHeight;
+      // Sub-line
+      if (nextTrimmed) {
+        ensureSpace(lineHeight);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(11);
+        doc.setTextColor(0, 0, 0);
+        doc.text(nextTrimmed, margin, y);
+        y += lineHeight;
+        i++;
+      }
+      continue;
+    }
+
+    // Plain body text
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(11);
+    doc.setTextColor(0, 0, 0);
+    const wrapped = doc.splitTextToSize(trimmed, contentWidth);
+    for (const wl of wrapped) {
+      ensureSpace(lineHeight);
+      doc.text(wl, margin, y);
+      y += lineHeight;
+    }
+  }
 
   doc.save(`${safeFilePart(fileNameBase)}.pdf`);
 }
@@ -182,34 +257,92 @@ function escapeHtml(value: string): string {
 
 export function downloadATSReadableCVAsWord(cvText: string, fileNameBase: string): void {
   const lines = cvText.split('\n');
-  const body = lines
-    .map((line, index) => {
-      const trimmed = line.trim();
-      if (!trimmed) return '<p class="gap">&nbsp;</p>';
-      if (index === 0) return `<h1>${escapeHtml(trimmed)}</h1>`;
-      const isHeading =
-        trimmed.length > 3 &&
-        trimmed === trimmed.toUpperCase() &&
-        !trimmed.startsWith('-') &&
-        !trimmed.includes('@');
-      if (isHeading) return `<h2>${escapeHtml(trimmed)}</h2>`;
-      return `<p>${escapeHtml(line)}</p>`;
-    })
-    .join('');
+
+  const isHeadingLine = (t: string) =>
+    t.length > 3 &&
+    t === t.toUpperCase() &&
+    !t.startsWith('-') &&
+    !t.startsWith('\u2022') &&
+    !t.includes('@');
+
+  const bodyParts: string[] = [];
+
+  // Line 0: name
+  const nameLine = lines[0]?.trim() ?? '';
+  if (nameLine) {
+    bodyParts.push(`<h1>${escapeHtml(nameLine)}</h1>`);
+  }
+
+  // Line 1: contact
+  const contactLine = lines[1]?.trim() ?? '';
+  if (contactLine) {
+    bodyParts.push(`<p class="contact">${escapeHtml(contactLine)}</p>`);
+  }
+
+  bodyParts.push('<hr class="divider" />');
+
+  for (let i = 2; i < lines.length; i++) {
+    const trimmed = lines[i].trim();
+
+    if (!trimmed) continue;
+
+    if (isHeadingLine(trimmed)) {
+      bodyParts.push(`<h2>${escapeHtml(trimmed)}</h2>`);
+      continue;
+    }
+
+    if (trimmed.startsWith('-') || trimmed.startsWith('\u2022')) {
+      const bulletText = trimmed.replace(/^[-\u2022]\s*/, '');
+      bodyParts.push(`<p class="bullet">\u2022 ${escapeHtml(bulletText)}</p>`);
+      continue;
+    }
+
+    // Entry header with right-aligned date
+    const datePattern = /(\d{4}|Present|present)/;
+    const nextTrimmed = lines[i + 1]?.trim() ?? '';
+    const nextIsSubLine =
+      nextTrimmed &&
+      !isHeadingLine(nextTrimmed) &&
+      !nextTrimmed.startsWith('-') &&
+      !nextTrimmed.startsWith('\u2022');
+
+    if (datePattern.test(trimmed) && nextIsSubLine) {
+      const match = trimmed.match(/^(.+?)\s{2,}(.+)$/);
+      if (match) {
+        bodyParts.push(
+          `<p class="entry-header"><strong>${escapeHtml(match[1].trim())}</strong><span class="date">${escapeHtml(match[2].trim())}</span></p>`
+        );
+      } else {
+        bodyParts.push(`<p class="entry-header"><strong>${escapeHtml(trimmed)}</strong></p>`);
+      }
+      if (nextTrimmed) {
+        bodyParts.push(`<p class="entry-sub">${escapeHtml(nextTrimmed)}</p>`);
+        i++;
+      }
+      continue;
+    }
+
+    bodyParts.push(`<p>${escapeHtml(trimmed)}</p>`);
+  }
 
   const html = `<!doctype html>
 <html>
 <head>
 <meta charset="utf-8">
 <style>
-body { font-family: Arial, sans-serif; color: #111111; line-height: 1.35; }
-h1 { font-size: 20pt; margin: 0 0 6pt; }
-h2 { font-size: 11pt; margin: 14pt 0 6pt; border-bottom: 1pt solid #777777; padding-bottom: 3pt; }
-p { font-size: 10pt; margin: 0 0 4pt; white-space: pre-wrap; }
-.gap { margin-bottom: 6pt; }
+body { font-family: Arial, sans-serif; color: #000000; font-size: 13px; line-height: 1.6; margin: 40px; }
+h1 { font-size: 22px; font-weight: 700; text-align: center; margin: 0 0 4px; }
+p.contact { font-size: 13px; font-weight: 400; text-align: center; margin: 0 0 8px; }
+hr.divider { border: none; border-top: 1px solid #cccccc; margin: 4px 0 12px; }
+h2 { font-size: 13px; font-weight: 700; text-transform: uppercase; margin: 14px 0 0; padding-bottom: 3px; border-bottom: 1px solid #cccccc; }
+p { font-size: 13px; margin: 0 0 2px; }
+p.bullet { margin-left: 16px; }
+p.entry-header { display: flex; justify-content: space-between; font-weight: 700; margin-top: 6px; margin-bottom: 0; }
+p.entry-header .date { font-weight: 400; }
+p.entry-sub { margin: 0 0 2px; }
 </style>
 </head>
-<body>${body}</body>
+<body>${bodyParts.join('')}</body>
 </html>`;
 
   const blob = new Blob([html], { type: 'application/msword;charset=utf-8' });

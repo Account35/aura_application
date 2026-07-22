@@ -128,42 +128,146 @@ function isCVStarted(data: CVBuilderData): boolean {
   );
 }
 
+function isHeadingLine(trimmed: string): boolean {
+  return (
+    trimmed.length > 3 &&
+    trimmed === trimmed.toUpperCase() &&
+    !trimmed.startsWith('-') &&
+    !trimmed.startsWith('•') &&
+    !trimmed.includes('@')
+  );
+}
+
 function renderCVPreview(cvText: string) {
-  return cvText.split('\n').map((line, index) => {
-    const trimmed = line.trim();
-    if (!trimmed) {
-      return <div key={`${index}-gap`} className="h-3" />;
-    }
+  const lines = cvText.split('\n');
+  const elements: React.ReactNode[] = [];
 
-    const isName = index === 0;
-    const isHeading =
-      trimmed.length > 3 &&
-      trimmed === trimmed.toUpperCase() &&
-      !trimmed.startsWith('-') &&
-      !trimmed.includes('@');
-
-    if (isName) {
-      return (
-        <p key={`${index}-name`} className="text-3xl font-bold text-slate-950">
-          {trimmed}
-        </p>
-      );
-    }
-
-    if (isHeading) {
-      return (
-        <div key={`${index}-heading`} className="mt-5 mb-2 border-b border-slate-400 pb-1">
-          <p className="text-sm font-bold tracking-normal text-slate-950">{trimmed}</p>
-        </div>
-      );
-    }
-
-    return (
-      <p key={`${index}-line`} className="whitespace-pre-wrap text-sm leading-6 text-slate-900">
-        {line}
+  // Line 0 = full name (centered, large bold)
+  const nameLine = lines[0]?.trim() ?? '';
+  if (nameLine) {
+    elements.push(
+      <p
+        key="cv-name"
+        style={{ fontSize: 22, fontWeight: 700, textAlign: 'center', color: '#000', marginBottom: 4 }}
+      >
+        {nameLine}
       </p>
     );
-  });
+  }
+
+  // Line 1 = contact details (centered, regular 13px)
+  const contactLine = lines[1]?.trim() ?? '';
+  if (contactLine) {
+    elements.push(
+      <p
+        key="cv-contact"
+        style={{ fontSize: 13, fontWeight: 400, textAlign: 'center', color: '#000', marginBottom: 8 }}
+      >
+        {contactLine}
+      </p>
+    );
+  }
+
+  // Top divider after contact
+  elements.push(
+    <hr key="cv-top-divider" style={{ border: 'none', borderTop: '1px solid #ccc', margin: '4px 0 12px' }} />
+  );
+
+  let i = 2;
+  while (i < lines.length) {
+    const trimmed = lines[i].trim();
+
+    if (!trimmed) {
+      i++;
+      continue;
+    }
+
+    if (isHeadingLine(trimmed)) {
+      // Section heading + divider
+      elements.push(
+        <div key={`heading-${i}`} style={{ marginTop: 14, marginBottom: 0 }}>
+          <p style={{ fontSize: 13, fontWeight: 700, color: '#000', textTransform: 'uppercase', margin: 0 }}>
+            {trimmed}
+          </p>
+          <hr style={{ border: 'none', borderTop: '1px solid #ccc', margin: '3px 0 6px' }} />
+        </div>
+      );
+      i++;
+      continue;
+    }
+
+    // Bullet point
+    if (trimmed.startsWith('-') || trimmed.startsWith('•')) {
+      const bulletText = trimmed.replace(/^[-•]\s*/, '');
+      elements.push(
+        <p
+          key={`bullet-${i}`}
+          style={{ fontSize: 13, color: '#000', lineHeight: 1.6, margin: '0 0 2px 16px' }}
+        >
+          {'• '}{bulletText}
+        </p>
+      );
+      i++;
+      continue;
+    }
+
+    // Check if next non-empty line looks like a sub-line (company, institution, etc.)
+    // Try to detect date-right-aligned pattern: "Bold Left Text   DATE"
+    // We look for lines that have a date-like suffix (e.g. "Jan 2020 - Dec 2022" or "2020")
+    const datePattern = /(\d{4}|Present|present)/;
+    const hasDate = datePattern.test(trimmed);
+
+    // Peek ahead: if next line is non-empty and not a heading/bullet, it's a sub-line
+    const nextTrimmed = lines[i + 1]?.trim() ?? '';
+    const nextIsSubLine =
+      nextTrimmed &&
+      !isHeadingLine(nextTrimmed) &&
+      !nextTrimmed.startsWith('-') &&
+      !nextTrimmed.startsWith('•');
+
+    if (hasDate && nextIsSubLine) {
+      // Entry header line: split on last occurrence of date-like segment for right-align
+      const match = trimmed.match(/^(.+?)\s{2,}(.+)$/);
+      if (match) {
+        elements.push(
+          <div key={`entry-header-${i}`} style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: '#000' }}>{match[1].trim()}</span>
+            <span style={{ fontSize: 13, fontWeight: 400, color: '#000' }}>{match[2].trim()}</span>
+          </div>
+        );
+      } else {
+        elements.push(
+          <p key={`entry-header-${i}`} style={{ fontSize: 13, fontWeight: 700, color: '#000', margin: '6px 0 0' }}>
+            {trimmed}
+          </p>
+        );
+      }
+      i++;
+      // Sub-line (company name / institution)
+      if (nextTrimmed) {
+        elements.push(
+          <p key={`entry-sub-${i}`} style={{ fontSize: 13, fontWeight: 400, color: '#000', margin: '0 0 2px' }}>
+            {nextTrimmed}
+          </p>
+        );
+        i++;
+      }
+      continue;
+    }
+
+    // Plain paragraph line
+    elements.push(
+      <p
+        key={`line-${i}`}
+        style={{ fontSize: 13, fontWeight: 400, color: '#000', lineHeight: 1.6, margin: '0 0 2px' }}
+      >
+        {trimmed}
+      </p>
+    );
+    i++;
+  }
+
+  return elements;
 }
 
 export function formatCVBuilderDataAsText(data: CVBuilderData): string {
@@ -596,7 +700,17 @@ export default function CVBuilderPage() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="rounded-lg bg-white p-8 font-sans shadow-inner">
+                  <div
+                    style={{
+                      background: '#fff',
+                      padding: '40px',
+                      fontFamily: 'Inter, sans-serif',
+                      color: '#000',
+                      lineHeight: 1.6,
+                      borderRadius: 8,
+                      boxShadow: 'inset 0 0 0 1px #e5e7eb',
+                    }}
+                  >
                     {renderCVPreview(generatedCV)}
                   </div>
                 </CardContent>
