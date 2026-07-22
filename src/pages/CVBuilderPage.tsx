@@ -128,144 +128,233 @@ function isCVStarted(data: CVBuilderData): boolean {
   );
 }
 
-function isHeadingLine(trimmed: string): boolean {
-  return (
-    trimmed.length > 3 &&
-    trimmed === trimmed.toUpperCase() &&
-    !trimmed.startsWith('-') &&
-    !trimmed.startsWith('•') &&
-    !trimmed.includes('@')
-  );
+// ---------------------------------------------------------------------------
+// Markdown stripping helpers
+// ---------------------------------------------------------------------------
+
+/** Remove all markdown heading prefixes (##, #, etc.) and return clean text. */
+function stripHeadingMarkers(raw: string): string {
+  return raw.replace(/^#{1,6}\s*/, '').trim();
+}
+
+/** Strip inline markdown: **bold**, *italic*, _italic_, `code`, <tags> */
+function stripInlineMarkdown(text: string): string {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, '$1')   // **bold**
+    .replace(/\*(.+?)\*/g, '$1')        // *italic*
+    .replace(/_{1,2}(.+?)_{1,2}/g, '$1') // _italic_ or __bold__
+    .replace(/`(.+?)`/g, '$1')          // `code`
+    .replace(/<[^>]+>/g, '')            // <html tags>
+    .trim();
+}
+
+type ParsedLine =
+  | { kind: 'name'; text: string }
+  | { kind: 'contact'; text: string }
+  | { kind: 'divider' }
+  | { kind: 'heading'; text: string }
+  | { kind: 'bullet'; text: string }
+  | { kind: 'entry'; left: string; right: string }
+  | { kind: 'plain'; text: string; bold?: boolean };
+
+/**
+ * Normalise a single raw line from the AI response into a typed token.
+ * All markdown syntax is stripped before classification.
+ */
+function parseLine(raw: string): ParsedLine | null {
+  // Markdown heading: # or ##
+  if (/^#{1,6}\s/.test(raw)) {
+    return { kind: 'heading', text: stripInlineMarkdown(stripHeadingMarkers(raw)).toUpperCase() };
+  }
+
+  // Markdown horizontal rule
+  if (/^-{3,}$/.test(raw.trim()) || /^\*{3,}$/.test(raw.trim()) || /^_{3,}$/.test(raw.trim())) {
+    return { kind: 'divider' };
+  }
+
+  // Bullet: markdown list item (- or * at start) or existing • bullet
+  if (/^[-*]\s/.test(raw) || raw.trimStart().startsWith('•')) {
+    const bulletText = stripInlineMarkdown(raw.replace(/^[-*•]\s*/, '').trim());
+    return { kind: 'bullet', text: bulletText };
+  }
+
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+
+  // Strip inline markdown from whatever remains
+  const clean = stripInlineMarkdown(trimmed);
+
+  // ALL-CAPS plain-text heading (legacy format from previous AI responses)
+  if (
+    clean.length > 3 &&
+    clean === clean.toUpperCase() &&
+    !clean.includes('@') &&
+    !/\d{4}/.test(clean)
+  ) {
+    return { kind: 'heading', text: clean };
+  }
+
+  return { kind: 'plain', text: clean };
+}
+
+/**
+ * Parse the full AI response into a flat array of typed tokens.
+ * The first non-empty line becomes the name, the second becomes the contact line.
+ */
+function parseCV(cvText: string): ParsedLine[] {
+  const rawLines = cvText.split('\n');
+  const tokens: ParsedLine[] = [];
+  let headersDone = false;
+  let nameEmitted = false;
+  let contactEmitted = false;
+
+  for (let i = 0; i < rawLines.length; i++) {
+    const raw = rawLines[i];
+    const trimmed = raw.trim();
+
+    if (!headersDone) {
+      // Skip blank lines before the name
+      if (!trimmed) continue;
+
+      if (!nameEmitted) {
+        // First content line = full name (strip any markdown)
+        const nameText = stripInlineMarkdown(stripHeadingMarkers(trimmed));
+        tokens.push({ kind: 'name', text: nameText });
+        nameEmitted = true;
+        continue;
+      }
+
+      if (!contactEmitted) {
+        // Second content line = contact details
+        const contactText = stripInlineMarkdown(trimmed);
+        tokens.push({ kind: 'contact', text: contactText });
+        tokens.push({ kind: 'divider' });
+        contactEmitted = true;
+        headersDone = true;
+        continue;
+      }
+    }
+
+    if (!trimmed) continue;
+
+    const token = parseLine(raw);
+    if (!token) continue;
+
+    // For plain lines: peek at the next non-empty line to detect entry-header pattern
+    // (job title / qualification with a date range on the same or next line)
+    if (token.kind === 'plain') {
+      const datePattern = /(\d{4}|Present|present)/;
+
+      // Check if the clean text itself contains a date — could be an entry header
+      if (datePattern.test(token.text)) {
+        // Try to split "Left text   date range" on 2+ spaces
+        const splitMatch = token.text.match(/^(.+?)\s{2,}(.+)$/);
+        if (splitMatch) {
+          tokens.push({ kind: 'entry', left: splitMatch[1].trim(), right: splitMatch[2].trim() });
+          continue;
+        }
+      }
+
+      // Peek ahead: if next non-empty line is a plain sub-line (company / institution)
+      // and current line looks like a bold entry title, treat as entry header
+      let nextNonEmpty = '';
+      for (let j = i + 1; j < rawLines.length; j++) {
+        const nt = rawLines[j].trim();
+        if (nt) { nextNonEmpty = nt; break; }
+      }
+      const nextToken = nextNonEmpty ? parseLine(nextNonEmpty) : null;
+      const nextIsSubLine = nextToken?.kind === 'plain';
+
+      if (nextIsSubLine && /^\*\*/.test(raw.trim())) {
+        // Current line was **bold** — treat as entry header without date
+        tokens.push({ kind: 'entry', left: token.text, right: '' });
+        continue;
+      }
+    }
+
+    tokens.push(token);
+  }
+
+  return tokens;
+}
+
+function renderInlineText(text: string): React.ReactNode[] {
+  // At this point inline markdown is already stripped; just return the text.
+  // Split on **bold** remnants that may survive edge cases.
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return parts.map((part, idx) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <strong key={idx}>{part.slice(2, -2)}</strong>;
+    }
+    return part;
+  });
 }
 
 function renderCVPreview(cvText: string) {
-  const lines = cvText.split('\n');
+  const tokens = parseCV(cvText);
   const elements: React.ReactNode[] = [];
 
-  // Line 0 = full name (centered, large bold)
-  const nameLine = lines[0]?.trim() ?? '';
-  if (nameLine) {
-    elements.push(
-      <p
-        key="cv-name"
-        style={{ fontSize: 22, fontWeight: 700, textAlign: 'center', color: '#000', marginBottom: 4 }}
-      >
-        {nameLine}
-      </p>
-    );
-  }
-
-  // Line 1 = contact details (centered, regular 13px)
-  const contactLine = lines[1]?.trim() ?? '';
-  if (contactLine) {
-    elements.push(
-      <p
-        key="cv-contact"
-        style={{ fontSize: 13, fontWeight: 400, textAlign: 'center', color: '#000', marginBottom: 8 }}
-      >
-        {contactLine}
-      </p>
-    );
-  }
-
-  // Top divider after contact
-  elements.push(
-    <hr key="cv-top-divider" style={{ border: 'none', borderTop: '1px solid #ccc', margin: '4px 0 12px' }} />
-  );
-
-  let i = 2;
-  while (i < lines.length) {
-    const trimmed = lines[i].trim();
-
-    if (!trimmed) {
-      i++;
-      continue;
-    }
-
-    if (isHeadingLine(trimmed)) {
-      // Section heading + divider
-      elements.push(
-        <div key={`heading-${i}`} style={{ marginTop: 14, marginBottom: 0 }}>
-          <p style={{ fontSize: 13, fontWeight: 700, color: '#000', textTransform: 'uppercase', margin: 0 }}>
-            {trimmed}
-          </p>
-          <hr style={{ border: 'none', borderTop: '1px solid #ccc', margin: '3px 0 6px' }} />
-        </div>
-      );
-      i++;
-      continue;
-    }
-
-    // Bullet point
-    if (trimmed.startsWith('-') || trimmed.startsWith('•')) {
-      const bulletText = trimmed.replace(/^[-•]\s*/, '');
-      elements.push(
-        <p
-          key={`bullet-${i}`}
-          style={{ fontSize: 13, color: '#000', lineHeight: 1.6, margin: '0 0 2px 16px' }}
-        >
-          {'• '}{bulletText}
-        </p>
-      );
-      i++;
-      continue;
-    }
-
-    // Check if next non-empty line looks like a sub-line (company, institution, etc.)
-    // Try to detect date-right-aligned pattern: "Bold Left Text   DATE"
-    // We look for lines that have a date-like suffix (e.g. "Jan 2020 - Dec 2022" or "2020")
-    const datePattern = /(\d{4}|Present|present)/;
-    const hasDate = datePattern.test(trimmed);
-
-    // Peek ahead: if next line is non-empty and not a heading/bullet, it's a sub-line
-    const nextTrimmed = lines[i + 1]?.trim() ?? '';
-    const nextIsSubLine =
-      nextTrimmed &&
-      !isHeadingLine(nextTrimmed) &&
-      !nextTrimmed.startsWith('-') &&
-      !nextTrimmed.startsWith('•');
-
-    if (hasDate && nextIsSubLine) {
-      // Entry header line: split on last occurrence of date-like segment for right-align
-      const match = trimmed.match(/^(.+?)\s{2,}(.+)$/);
-      if (match) {
+  tokens.forEach((token, idx) => {
+    switch (token.kind) {
+      case 'name':
         elements.push(
-          <div key={`entry-header-${i}`} style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: '#000' }}>{match[1].trim()}</span>
-            <span style={{ fontSize: 13, fontWeight: 400, color: '#000' }}>{match[2].trim()}</span>
+          <p key={`t-${idx}`} style={{ fontSize: 22, fontWeight: 700, textAlign: 'center', color: '#000', marginBottom: 4 }}>
+            {token.text}
+          </p>
+        );
+        break;
+
+      case 'contact':
+        elements.push(
+          <p key={`t-${idx}`} style={{ fontSize: 13, fontWeight: 400, textAlign: 'center', color: '#000', marginBottom: 8 }}>
+            {token.text}
+          </p>
+        );
+        break;
+
+      case 'divider':
+        elements.push(
+          <hr key={`t-${idx}`} style={{ border: 'none', borderTop: '1px solid #ccc', margin: '4px 0 12px' }} />
+        );
+        break;
+
+      case 'heading':
+        elements.push(
+          <div key={`t-${idx}`} style={{ marginTop: 14, marginBottom: 0 }}>
+            <p style={{ fontSize: 13, fontWeight: 700, color: '#000', textTransform: 'uppercase', margin: 0 }}>
+              {token.text}
+            </p>
+            <hr style={{ border: 'none', borderTop: '1px solid #ccc', margin: '3px 0 6px' }} />
           </div>
         );
-      } else {
-        elements.push(
-          <p key={`entry-header-${i}`} style={{ fontSize: 13, fontWeight: 700, color: '#000', margin: '6px 0 0' }}>
-            {trimmed}
-          </p>
-        );
-      }
-      i++;
-      // Sub-line (company name / institution)
-      if (nextTrimmed) {
-        elements.push(
-          <p key={`entry-sub-${i}`} style={{ fontSize: 13, fontWeight: 400, color: '#000', margin: '0 0 2px' }}>
-            {nextTrimmed}
-          </p>
-        );
-        i++;
-      }
-      continue;
-    }
+        break;
 
-    // Plain paragraph line
-    elements.push(
-      <p
-        key={`line-${i}`}
-        style={{ fontSize: 13, fontWeight: 400, color: '#000', lineHeight: 1.6, margin: '0 0 2px' }}
-      >
-        {trimmed}
-      </p>
-    );
-    i++;
-  }
+      case 'bullet':
+        elements.push(
+          <p key={`t-${idx}`} style={{ fontSize: 13, color: '#000', lineHeight: 1.6, margin: '0 0 2px 16px' }}>
+            {'• '}{token.text}
+          </p>
+        );
+        break;
+
+      case 'entry':
+        elements.push(
+          <div key={`t-${idx}`} style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: '#000' }}>{token.left}</span>
+            {token.right && <span style={{ fontSize: 13, fontWeight: 400, color: '#000' }}>{token.right}</span>}
+          </div>
+        );
+        break;
+
+      case 'plain':
+        elements.push(
+          <p key={`t-${idx}`} style={{ fontSize: 13, fontWeight: token.bold ? 700 : 400, color: '#000', lineHeight: 1.6, margin: '0 0 2px' }}>
+            {renderInlineText(token.text)}
+          </p>
+        );
+        break;
+    }
+  });
 
   return elements;
 }

@@ -1,10 +1,104 @@
 import jsPDF from 'jspdf';
 
-/**
- * Generates a clean, ATS-friendly PDF from plain-text CV content.
- * Uses jsPDF to write real selectable text (not an image) so the PDF
- * passes ATS parsers.
- */
+// ---------------------------------------------------------------------------
+// Shared markdown-stripping parser (mirrors CVBuilderPage logic)
+// ---------------------------------------------------------------------------
+
+function stripHeadingMarkers(raw: string): string {
+  return raw.replace(/^#{1,6}\s*/, '').trim();
+}
+
+function stripInlineMarkdown(text: string): string {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/\*(.+?)\*/g, '$1')
+    .replace(/_{1,2}(.+?)_{1,2}/g, '$1')
+    .replace(/`(.+?)`/g, '$1')
+    .replace(/<[^>]+>/g, '')
+    .trim();
+}
+
+type ParsedToken =
+  | { kind: 'name'; text: string }
+  | { kind: 'contact'; text: string }
+  | { kind: 'divider' }
+  | { kind: 'heading'; text: string }
+  | { kind: 'bullet'; text: string }
+  | { kind: 'entry'; left: string; right: string }
+  | { kind: 'plain'; text: string };
+
+function parseLineToken(raw: string): ParsedToken | null {
+  if (/^#{1,6}\s/.test(raw)) {
+    return { kind: 'heading', text: stripInlineMarkdown(stripHeadingMarkers(raw)).toUpperCase() };
+  }
+  if (/^-{3,}$/.test(raw.trim()) || /^\*{3,}$/.test(raw.trim()) || /^_{3,}$/.test(raw.trim())) {
+    return { kind: 'divider' };
+  }
+  if (/^[-*]\s/.test(raw) || raw.trimStart().startsWith('\u2022')) {
+    return { kind: 'bullet', text: stripInlineMarkdown(raw.replace(/^[-*\u2022]\s*/, '').trim()) };
+  }
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  const clean = stripInlineMarkdown(trimmed);
+  if (clean.length > 3 && clean === clean.toUpperCase() && !clean.includes('@') && !/\d{4}/.test(clean)) {
+    return { kind: 'heading', text: clean };
+  }
+  return { kind: 'plain', text: clean };
+}
+
+function parseCVTokens(cvText: string): ParsedToken[] {
+  const rawLines = cvText.split('\n');
+  const tokens: ParsedToken[] = [];
+  let nameEmitted = false;
+  let contactEmitted = false;
+  let headersDone = false;
+
+  for (let i = 0; i < rawLines.length; i++) {
+    const raw = rawLines[i];
+    const trimmed = raw.trim();
+
+    if (!headersDone) {
+      if (!trimmed) continue;
+      if (!nameEmitted) {
+        tokens.push({ kind: 'name', text: stripInlineMarkdown(stripHeadingMarkers(trimmed)) });
+        nameEmitted = true;
+        continue;
+      }
+      if (!contactEmitted) {
+        tokens.push({ kind: 'contact', text: stripInlineMarkdown(trimmed) });
+        tokens.push({ kind: 'divider' });
+        contactEmitted = true;
+        headersDone = true;
+        continue;
+      }
+    }
+
+    if (!trimmed) continue;
+
+    const token = parseLineToken(raw);
+    if (!token) continue;
+
+    if (token.kind === 'plain') {
+      const datePattern = /(\d{4}|Present|present)/;
+      if (datePattern.test(token.text)) {
+        const splitMatch = token.text.match(/^(.+?)\s{2,}(.+)$/);
+        if (splitMatch) {
+          tokens.push({ kind: 'entry', left: splitMatch[1].trim(), right: splitMatch[2].trim() });
+          continue;
+        }
+      }
+      if (/^\*\*/.test(raw.trim())) {
+        tokens.push({ kind: 'entry', left: token.text, right: '' });
+        continue;
+      }
+    }
+
+    tokens.push(token);
+  }
+
+  return tokens;
+}
+
 export function downloadCVAsPDF(cvText: string, jobTitle: string): void {
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
 
@@ -110,137 +204,97 @@ export function downloadATSReadableCVAsPDF(cvText: string, fileNameBase: string)
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 40;
   const contentWidth = pageWidth - margin * 2;
-  const lineHeight = 15.6; // ~13px * 1.6 line-height in pt
+  const lh = 15.6;
   let y = margin + 16;
 
-  const ensureSpace = (height: number) => {
-    if (y + height <= pageHeight - margin) return;
+  const ensureSpace = (h: number) => {
+    if (y + h <= pageHeight - margin) return;
     doc.addPage();
     y = margin + 16;
   };
 
-  const isHeadingLine = (t: string) =>
-    t.length > 3 &&
-    t === t.toUpperCase() &&
-    !t.startsWith('-') &&
-    !t.startsWith('\u2022') &&
-    !t.includes('@');
+  const tokens = parseCVTokens(cvText);
 
-  const lines = cvText.split('\n');
-
-  // Line 0: Full name — centered, bold, 22pt
-  const nameLine = lines[0]?.trim() ?? '';
-  if (nameLine) {
-    ensureSpace(28);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(22);
-    doc.setTextColor(0, 0, 0);
-    doc.text(nameLine, pageWidth / 2, y, { align: 'center' });
-    y += 20;
-  }
-
-  // Line 1: Contact line — centered, regular, 11pt
-  const contactLine = lines[1]?.trim() ?? '';
-  if (contactLine) {
-    ensureSpace(16);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(11);
-    doc.setTextColor(0, 0, 0);
-    doc.text(contactLine, pageWidth / 2, y, { align: 'center' });
-    y += 10;
-  }
-
-  // Top divider
-  doc.setDrawColor(180, 180, 180);
-  doc.setLineWidth(0.5);
-  doc.line(margin, y, pageWidth - margin, y);
-  y += 12;
-
-  for (let i = 2; i < lines.length; i++) {
-    const trimmed = lines[i].trim();
-
-    if (!trimmed) continue;
-
-    if (isHeadingLine(trimmed)) {
-      ensureSpace(28);
-      y += 8;
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(11);
-      doc.setTextColor(0, 0, 0);
-      doc.text(trimmed, margin, y);
-      y += 4;
-      doc.setDrawColor(180, 180, 180);
-      doc.setLineWidth(0.5);
-      doc.line(margin, y, pageWidth - margin, y);
-      y += 10;
-      continue;
-    }
-
-    // Bullet point
-    if (trimmed.startsWith('-') || trimmed.startsWith('\u2022')) {
-      const bulletText = trimmed.replace(/^[-\u2022]\s*/, '');
-      ensureSpace(lineHeight);
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(11);
-      doc.setTextColor(0, 0, 0);
-      const wrapped = doc.splitTextToSize(`\u2022 ${bulletText}`, contentWidth - 16);
-      for (const wl of wrapped) {
-        ensureSpace(lineHeight);
-        doc.text(wl, margin + 12, y);
-        y += lineHeight;
-      }
-      continue;
-    }
-
-    // Entry header with right-aligned date
-    const datePattern = /(\d{4}|Present|present)/;
-    const nextTrimmed = lines[i + 1]?.trim() ?? '';
-    const nextIsSubLine =
-      nextTrimmed &&
-      !isHeadingLine(nextTrimmed) &&
-      !nextTrimmed.startsWith('-') &&
-      !nextTrimmed.startsWith('\u2022');
-
-    if (datePattern.test(trimmed) && nextIsSubLine) {
-      ensureSpace(lineHeight * 2 + 4);
-      y += 4;
-      const match = trimmed.match(/^(.+?)\s{2,}(.+)$/);
-      if (match) {
+  for (const token of tokens) {
+    switch (token.kind) {
+      case 'name':
+        ensureSpace(28);
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(11);
+        doc.setFontSize(22);
         doc.setTextColor(0, 0, 0);
-        doc.text(match[1].trim(), margin, y);
-        doc.setFont('helvetica', 'normal');
-        doc.text(match[2].trim(), pageWidth - margin, y, { align: 'right' });
-      } else {
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(11);
-        doc.setTextColor(0, 0, 0);
-        doc.text(trimmed, margin, y);
-      }
-      y += lineHeight;
-      // Sub-line
-      if (nextTrimmed) {
-        ensureSpace(lineHeight);
+        doc.text(token.text, pageWidth / 2, y, { align: 'center' });
+        y += 22;
+        break;
+
+      case 'contact':
+        ensureSpace(16);
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(11);
         doc.setTextColor(0, 0, 0);
-        doc.text(nextTrimmed, margin, y);
-        y += lineHeight;
-        i++;
-      }
-      continue;
-    }
+        doc.text(token.text, pageWidth / 2, y, { align: 'center' });
+        y += 10;
+        break;
 
-    // Plain body text
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(11);
-    doc.setTextColor(0, 0, 0);
-    const wrapped = doc.splitTextToSize(trimmed, contentWidth);
-    for (const wl of wrapped) {
-      ensureSpace(lineHeight);
-      doc.text(wl, margin, y);
-      y += lineHeight;
+      case 'divider':
+        doc.setDrawColor(180, 180, 180);
+        doc.setLineWidth(0.5);
+        doc.line(margin, y, pageWidth - margin, y);
+        y += 12;
+        break;
+
+      case 'heading':
+        ensureSpace(28);
+        y += 8;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.setTextColor(0, 0, 0);
+        doc.text(token.text, margin, y);
+        y += 4;
+        doc.setDrawColor(180, 180, 180);
+        doc.setLineWidth(0.5);
+        doc.line(margin, y, pageWidth - margin, y);
+        y += 10;
+        break;
+
+      case 'bullet': {
+        const wrapped = doc.splitTextToSize(`\u2022 ${token.text}`, contentWidth - 16);
+        for (const wl of wrapped) {
+          ensureSpace(lh);
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(11);
+          doc.setTextColor(0, 0, 0);
+          doc.text(wl, margin + 12, y);
+          y += lh;
+        }
+        break;
+      }
+
+      case 'entry':
+        ensureSpace(lh + 4);
+        y += 4;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.setTextColor(0, 0, 0);
+        doc.text(token.left, margin, y);
+        if (token.right) {
+          doc.setFont('helvetica', 'normal');
+          doc.text(token.right, pageWidth - margin, y, { align: 'right' });
+        }
+        y += lh;
+        break;
+
+      case 'plain': {
+        const wrapped = doc.splitTextToSize(token.text, contentWidth);
+        for (const wl of wrapped) {
+          ensureSpace(lh);
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(11);
+          doc.setTextColor(0, 0, 0);
+          doc.text(wl, margin, y);
+          y += lh;
+        }
+        break;
+      }
     }
   }
 
@@ -256,73 +310,35 @@ function escapeHtml(value: string): string {
 }
 
 export function downloadATSReadableCVAsWord(cvText: string, fileNameBase: string): void {
-  const lines = cvText.split('\n');
-
-  const isHeadingLine = (t: string) =>
-    t.length > 3 &&
-    t === t.toUpperCase() &&
-    !t.startsWith('-') &&
-    !t.startsWith('\u2022') &&
-    !t.includes('@');
-
+  const tokens = parseCVTokens(cvText);
   const bodyParts: string[] = [];
 
-  // Line 0: name
-  const nameLine = lines[0]?.trim() ?? '';
-  if (nameLine) {
-    bodyParts.push(`<h1>${escapeHtml(nameLine)}</h1>`);
-  }
-
-  // Line 1: contact
-  const contactLine = lines[1]?.trim() ?? '';
-  if (contactLine) {
-    bodyParts.push(`<p class="contact">${escapeHtml(contactLine)}</p>`);
-  }
-
-  bodyParts.push('<hr class="divider" />');
-
-  for (let i = 2; i < lines.length; i++) {
-    const trimmed = lines[i].trim();
-
-    if (!trimmed) continue;
-
-    if (isHeadingLine(trimmed)) {
-      bodyParts.push(`<h2>${escapeHtml(trimmed)}</h2>`);
-      continue;
-    }
-
-    if (trimmed.startsWith('-') || trimmed.startsWith('\u2022')) {
-      const bulletText = trimmed.replace(/^[-\u2022]\s*/, '');
-      bodyParts.push(`<p class="bullet">\u2022 ${escapeHtml(bulletText)}</p>`);
-      continue;
-    }
-
-    // Entry header with right-aligned date
-    const datePattern = /(\d{4}|Present|present)/;
-    const nextTrimmed = lines[i + 1]?.trim() ?? '';
-    const nextIsSubLine =
-      nextTrimmed &&
-      !isHeadingLine(nextTrimmed) &&
-      !nextTrimmed.startsWith('-') &&
-      !nextTrimmed.startsWith('\u2022');
-
-    if (datePattern.test(trimmed) && nextIsSubLine) {
-      const match = trimmed.match(/^(.+?)\s{2,}(.+)$/);
-      if (match) {
+  for (const token of tokens) {
+    switch (token.kind) {
+      case 'name':
+        bodyParts.push(`<h1>${escapeHtml(token.text)}</h1>`);
+        break;
+      case 'contact':
+        bodyParts.push(`<p class="contact">${escapeHtml(token.text)}</p>`);
+        break;
+      case 'divider':
+        bodyParts.push('<hr class="divider" />');
+        break;
+      case 'heading':
+        bodyParts.push(`<h2>${escapeHtml(token.text)}</h2>`);
+        break;
+      case 'bullet':
+        bodyParts.push(`<p class="bullet">\u2022 ${escapeHtml(token.text)}</p>`);
+        break;
+      case 'entry':
         bodyParts.push(
-          `<p class="entry-header"><strong>${escapeHtml(match[1].trim())}</strong><span class="date">${escapeHtml(match[2].trim())}</span></p>`
+          `<p class="entry-header"><strong>${escapeHtml(token.left)}</strong>${token.right ? `<span class="date">${escapeHtml(token.right)}</span>` : ''}</p>`
         );
-      } else {
-        bodyParts.push(`<p class="entry-header"><strong>${escapeHtml(trimmed)}</strong></p>`);
-      }
-      if (nextTrimmed) {
-        bodyParts.push(`<p class="entry-sub">${escapeHtml(nextTrimmed)}</p>`);
-        i++;
-      }
-      continue;
+        break;
+      case 'plain':
+        bodyParts.push(`<p>${escapeHtml(token.text)}</p>`);
+        break;
     }
-
-    bodyParts.push(`<p>${escapeHtml(trimmed)}</p>`);
   }
 
   const html = `<!doctype html>
@@ -339,7 +355,6 @@ p { font-size: 13px; margin: 0 0 2px; }
 p.bullet { margin-left: 16px; }
 p.entry-header { display: flex; justify-content: space-between; font-weight: 700; margin-top: 6px; margin-bottom: 0; }
 p.entry-header .date { font-weight: 400; }
-p.entry-sub { margin: 0 0 2px; }
 </style>
 </head>
 <body>${bodyParts.join('')}</body>
