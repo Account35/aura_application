@@ -9,6 +9,11 @@ import { getCoverLetterById } from '@/db/api';
 import type { CoverLetter } from '@/types/types';
 import { ArrowLeft, Copy, Download } from 'lucide-react';
 import { toast } from 'sonner';
+import {
+  stripCoverLetterMarkdown,
+  renderCoverLetterPreview,
+  buildCoverLetterWordHtml,
+} from '@/lib/coverLetterUtils';
 
 export default function HistoryDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -37,14 +42,15 @@ export default function HistoryDetailPage() {
 
   const handleCopy = () => {
     if (coverLetter) {
-      navigator.clipboard.writeText(coverLetter.content);
+      navigator.clipboard.writeText(stripCoverLetterMarkdown(coverLetter.content));
       toast.success('Cover letter copied to clipboard');
     }
   };
 
   const handleDownload = () => {
     if (coverLetter) {
-      const blob = new Blob([coverLetter.content], { type: 'text/plain' });
+      const html = buildCoverLetterWordHtml(coverLetter.content);
+      const blob = new Blob([html], { type: 'application/msword;charset=utf-8' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -106,10 +112,18 @@ export default function HistoryDetailPage() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="prose prose-invert max-w-none">
-                <div className="whitespace-pre-wrap text-foreground leading-relaxed">
-                  {coverLetter.content}
-                </div>
+              <div
+                style={{
+                  background: '#fff',
+                  padding: '40px',
+                  fontFamily: 'Inter, sans-serif',
+                  color: '#000',
+                  lineHeight: 1.8,
+                  borderRadius: 8,
+                  boxShadow: 'inset 0 0 0 1px #e5e7eb',
+                }}
+              >
+                {renderCoverLetterPreview(coverLetter.content)}
               </div>
             </CardContent>
           </Card>

@@ -42,6 +42,11 @@ import {
 } from '@/lib/planUtils';
 import { getCVBuilderProfile } from '@/db/api';
 import { formatCVBuilderDataAsText } from '@/pages/CVBuilderPage';
+import {
+  stripCoverLetterMarkdown,
+  renderCoverLetterPreview,
+  buildCoverLetterWordHtml,
+} from '@/lib/coverLetterUtils';
 
 export default function GeneratePage() {
   const { user, profile, refreshProfile } = useAuth();
@@ -211,13 +216,13 @@ export default function GeneratePage() {
 
   // ── Download helpers ───────────────────────────────────────────────────────
   const handleCopyCoverLetter = () => {
-    navigator.clipboard.writeText(coverLetter);
+    navigator.clipboard.writeText(stripCoverLetterMarkdown(coverLetter));
     toast.success('Cover letter copied to clipboard');
   };
 
   const handleDownloadCoverLetter = () => {
-    const content = coverLetter || 'Cover letter content is empty.';
-    const blob = new Blob([content], { type: 'application/msword' });
+    const html = buildCoverLetterWordHtml(coverLetter);
+    const blob = new Blob([html], { type: 'application/msword;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -489,8 +494,18 @@ export default function GeneratePage() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="whitespace-pre-wrap text-foreground leading-relaxed bg-muted p-6 rounded-lg border border-border">
-                  {coverLetter}
+                <div
+                  style={{
+                    background: '#fff',
+                    padding: '40px',
+                    fontFamily: 'Inter, sans-serif',
+                    color: '#000',
+                    lineHeight: 1.8,
+                    borderRadius: 8,
+                    boxShadow: 'inset 0 0 0 1px #e5e7eb',
+                  }}
+                >
+                  {renderCoverLetterPreview(coverLetter)}
                 </div>
                 {/* Chat prompt */}
                 <div className="mt-4 flex items-center gap-3 p-4 rounded-lg border border-border bg-muted/50">
