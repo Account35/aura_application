@@ -278,85 +278,266 @@ function parseCV(cvText: string): ParsedLine[] {
   return tokens;
 }
 
-function renderInlineText(text: string): React.ReactNode[] {
-  // At this point inline markdown is already stripped; just return the text.
-  // Split on **bold** remnants that may survive edge cases.
-  const parts = text.split(/(\*\*[^*]+\*\*)/g);
-  return parts.map((part, idx) => {
-    if (part.startsWith('**') && part.endsWith('**')) {
-      return <strong key={idx}>{part.slice(2, -2)}</strong>;
+// ---------------------------------------------------------------------------
+// Two-column section routing
+// ---------------------------------------------------------------------------
+
+const LEFT_SECTIONS = new Set([
+  'SUMMARY', 'PERSONAL SUMMARY', 'PROFILE', 'OBJECTIVE',
+  'EXPERIENCE', 'WORK EXPERIENCE', 'EMPLOYMENT', 'EMPLOYMENT HISTORY',
+  'CERTIFICATIONS', 'CERTIFICATIONS AND ACHIEVEMENTS', 'PROJECTS', 'CERTIFICATES',
+  'LANGUAGES', 'TRAINING', 'COURSES', 'TRAINING AND COURSES',
+]);
+
+const RIGHT_SECTIONS = new Set([
+  'KEY ACHIEVEMENTS', 'ACHIEVEMENTS',
+  'SKILLS', 'TECHNICAL SKILLS', 'SOFT SKILLS',
+  'CORE COMPETENCIES', 'COMPETENCIES',
+  'EDUCATION', 'EDUCATION AND QUALIFICATIONS', 'QUALIFICATIONS',
+  'REFERENCES',
+]);
+
+function getSectionSide(heading: string): 'left' | 'right' | null {
+  const upper = heading.toUpperCase().trim();
+  if (LEFT_SECTIONS.has(upper)) return 'left';
+  if (RIGHT_SECTIONS.has(upper)) return 'right';
+  for (const s of LEFT_SECTIONS) if (upper.includes(s)) return 'left';
+  for (const s of RIGHT_SECTIONS) if (upper.includes(s)) return 'right';
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Language proficiency bar parser
+// ---------------------------------------------------------------------------
+
+function parseLanguageLine(text: string): { lang: string; level: number } | null {
+  const patterns = [/^(.+?)[\s\-\u2013:]+(.+)$/, /^(.+?)\s+\((.+?)\)$/];
+  const levels: Record<string, number> = {
+    native: 5, fluent: 5, advanced: 4, proficient: 4,
+    intermediate: 3, conversational: 2, basic: 1, beginner: 1,
+  };
+  for (const pat of patterns) {
+    const m = text.match(pat);
+    if (m) {
+      const score = levels[m[2].trim().toLowerCase()];
+      if (score !== undefined) return { lang: m[1].trim(), level: score };
     }
-    return part;
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Contact icon helpers (inline SVG, blue)
+// ---------------------------------------------------------------------------
+
+const PHONE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#1A73E8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.62 3.28a2 2 0 0 1 1.99-2.18H6.6a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L7.91 9a16 16 0 0 0 6.09 6.09l.94-.94a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>`;
+const EMAIL_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#1A73E8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>`;
+const LOCATION_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#1A73E8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>`;
+const LINK_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#1A73E8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`;
+
+function parseContactParts(contactText: string) {
+  const parts = contactText.split(/\s*[\|•·]\s*/).map((s) => s.trim()).filter(Boolean);
+  return parts.map((part) => {
+    if (part.includes('@')) return { icon: EMAIL_SVG, text: part };
+    if (/^[+\d\s()-]{6,}$/.test(part)) return { icon: PHONE_SVG, text: part };
+    if (/linkedin|github|portfolio|http/i.test(part)) return { icon: LINK_SVG, text: part };
+    return { icon: LOCATION_SVG, text: part };
   });
 }
 
-function renderCVPreview(cvText: string) {
-  const tokens = parseCV(cvText);
-  const elements: React.ReactNode[] = [];
+// ---------------------------------------------------------------------------
+// Two-column CV preview (React component)
+// ---------------------------------------------------------------------------
 
-  tokens.forEach((token, idx) => {
-    switch (token.kind) {
-      case 'name':
-        elements.push(
-          <p key={`t-${idx}`} style={{ fontSize: 22, fontWeight: 700, textAlign: 'center', color: '#000', marginBottom: 4 }}>
-            {token.text}
-          </p>
-        );
-        break;
+interface CVSection {
+  heading: string;
+  tokens: ParsedLine[];
+}
 
-      case 'contact':
-        elements.push(
-          <p key={`t-${idx}`} style={{ fontSize: 13, fontWeight: 400, textAlign: 'center', color: '#000', marginBottom: 8 }}>
-            {token.text}
-          </p>
-        );
-        break;
+function buildColumnSections(tokens: ParsedLine[]): {
+  name: string;
+  subtitle: string;
+  contact: string;
+  left: CVSection[];
+  right: CVSection[];
+} {
+  let name = '';
+  let subtitle = '';
+  let contact = '';
+  const left: CVSection[] = [];
+  const right: CVSection[] = [];
+  let currentSide: 'left' | 'right' = 'left';
+  let currentSection: CVSection | null = null;
 
-      case 'divider':
-        elements.push(
-          <hr key={`t-${idx}`} style={{ border: 'none', borderTop: '1px solid #ccc', margin: '4px 0 12px' }} />
-        );
-        break;
+  const flush = () => {
+    if (!currentSection) return;
+    if (currentSide === 'left') left.push(currentSection);
+    else right.push(currentSection);
+    currentSection = null;
+  };
 
-      case 'heading':
-        elements.push(
-          <div key={`t-${idx}`} style={{ marginTop: 14, marginBottom: 0 }}>
-            <p style={{ fontSize: 13, fontWeight: 700, color: '#000', textTransform: 'uppercase', margin: 0 }}>
-              {token.text}
-            </p>
-            <hr style={{ border: 'none', borderTop: '1px solid #ccc', margin: '3px 0 6px' }} />
-          </div>
-        );
-        break;
-
-      case 'bullet':
-        elements.push(
-          <p key={`t-${idx}`} style={{ fontSize: 13, color: '#000', lineHeight: 1.6, margin: '0 0 2px 16px' }}>
-            {'• '}{token.text}
-          </p>
-        );
-        break;
-
-      case 'entry':
-        elements.push(
-          <div key={`t-${idx}`} style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: '#000' }}>{token.left}</span>
-            {token.right && <span style={{ fontSize: 13, fontWeight: 400, color: '#000' }}>{token.right}</span>}
-          </div>
-        );
-        break;
-
-      case 'plain':
-        elements.push(
-          <p key={`t-${idx}`} style={{ fontSize: 13, fontWeight: token.bold ? 700 : 400, color: '#000', lineHeight: 1.6, margin: '0 0 2px' }}>
-            {renderInlineText(token.text)}
-          </p>
-        );
-        break;
+  for (const token of tokens) {
+    if (token.kind === 'name') { name = token.text; continue; }
+    if (token.kind === 'contact') {
+      if (!contact) { contact = token.text; }
+      else if (!subtitle) { subtitle = token.text; }
+      continue;
     }
-  });
+    if (token.kind === 'divider') continue;
+    if (token.kind === 'heading') {
+      flush();
+      currentSide = getSectionSide(token.text) ?? currentSide;
+      currentSection = { heading: token.text, tokens: [] };
+      continue;
+    }
+    if (currentSection) currentSection.tokens.push(token);
+  }
+  flush();
 
-  return elements;
+  return { name, subtitle, contact, left, right };
+}
+
+function SectionBlock({ section, isRight = false }: { section: CVSection; isRight?: boolean }) {
+  const isLanguages = /LANGUAGE/i.test(section.heading);
+  const fs = isRight ? 11 : 12;
+  const headFs = isRight ? 10 : 11;
+
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <hr style={{ border: 'none', borderTop: '1.5px solid #333333', margin: '0 0 4px' }} />
+      <p style={{ fontSize: headFs, fontWeight: 700, color: '#333333', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 8px' }}>
+        {section.heading}
+      </p>
+
+      {isLanguages ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {section.tokens
+            .filter((t) => t.kind === 'plain' || t.kind === 'bullet')
+            .map((t, i) => {
+              const text = (t as { text: string }).text;
+              const parsed = parseLanguageLine(text);
+              if (parsed) {
+                return (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 11, color: '#333333', width: 72, flexShrink: 0 }}>{parsed.lang}</span>
+                    <div style={{ display: 'flex', gap: 3 }}>
+                      {[1, 2, 3, 4, 5].map((n) => (
+                        <div
+                          key={n}
+                          style={{
+                            width: 20, height: 7, borderRadius: 4,
+                            background: n <= parsed.level ? '#1A73E8' : '#d1d5db',
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                );
+              }
+              return <p key={i} style={{ fontSize: fs, color: '#555', margin: '0 0 2px' }}>{text}</p>;
+            })}
+        </div>
+      ) : (
+        <div>
+          {section.tokens.map((token, i) => {
+            if (token.kind === 'entry') {
+              return (
+                <div key={i} style={{ marginBottom: 2 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                    <span style={{ fontSize: fs, fontWeight: 700, color: '#333333' }}>{token.left}</span>
+                    {token.right && (
+                      <span style={{ fontSize: 10, color: '#6b7280', flexShrink: 0, marginLeft: 6 }}>{token.right}</span>
+                    )}
+                  </div>
+                </div>
+              );
+            }
+            if (token.kind === 'bullet') {
+              return (
+                <div key={i} style={{ display: 'flex', gap: 5, marginBottom: 3, alignItems: 'flex-start' }}>
+                  <span style={{ color: '#1A73E8', fontSize: 11, lineHeight: '18px', flexShrink: 0 }}>▸</span>
+                  <p style={{ fontSize: fs, color: '#333333', lineHeight: 1.55, margin: 0 }}>{token.text}</p>
+                </div>
+              );
+            }
+            if (token.kind === 'plain') {
+              return (
+                <p key={i} style={{ fontSize: fs, color: '#555', lineHeight: 1.55, margin: '0 0 3px' }}>
+                  {token.text}
+                </p>
+              );
+            }
+            if (token.kind === 'heading') {
+              return (
+                <p key={i} style={{ fontSize: headFs, fontWeight: 700, color: '#333333', margin: '6px 0 2px', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                  {token.text}
+                </p>
+              );
+            }
+            return null;
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TwoColumnCVPreview({ cvText }: { cvText: string }) {
+  const tokens = parseCV(cvText);
+  const { name, subtitle, contact, left, right } = buildColumnSections(tokens);
+  const contactParts = contact ? parseContactParts(contact) : [];
+
+  return (
+    <div style={{ fontFamily: 'Inter, Roboto, Arial, sans-serif', color: '#333333', background: '#fff', lineHeight: 1.5 }}>
+      {/* Header */}
+      <div style={{ marginBottom: 16 }}>
+        <p style={{ fontSize: 22, fontWeight: 800, textAlign: 'center', color: '#1a1a1a', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 4px' }}>
+          {name || 'YOUR NAME'}
+        </p>
+        {subtitle && (
+          <p style={{ fontSize: 13, textAlign: 'center', color: '#1A73E8', fontWeight: 600, margin: '0 0 8px' }}>
+            {subtitle}
+          </p>
+        )}
+        {contactParts.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '5px 14px' }}>
+            {contactParts.map((part, i) => (
+              <span key={i} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#444' }}>
+                <span dangerouslySetInnerHTML={{ __html: part.icon }} />
+                {part.text}
+              </span>
+            ))}
+          </div>
+        )}
+        {contactParts.length === 0 && contact && (
+          <p style={{ fontSize: 11, textAlign: 'center', color: '#444', margin: 0 }}>{contact}</p>
+        )}
+      </div>
+
+      {/* Full-width header divider */}
+      <hr style={{ border: 'none', borderTop: '2px solid #333333', margin: '0 0 16px' }} />
+
+      {/* Two-column body */}
+      <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
+        {/* Left column ~65% */}
+        <div style={{ flex: '0 0 63%', maxWidth: '63%' }}>
+          {left.map((section, i) => (
+            <SectionBlock key={i} section={section} isRight={false} />
+          ))}
+        </div>
+
+        {/* Vertical separator */}
+        <div style={{ width: 1, background: '#e5e7eb', alignSelf: 'stretch', flexShrink: 0 }} />
+
+        {/* Right column ~35% */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {right.map((section, i) => (
+            <SectionBlock key={i} section={section} isRight={true} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export function formatCVBuilderDataAsText(data: CVBuilderData): string {
@@ -776,7 +957,7 @@ export default function CVBuilderPage() {
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div>
                       <CardTitle>Generated CV Preview</CardTitle>
-                      <CardDescription>Clean ATS readable layout, ready for PDF or Word export.</CardDescription>
+                      <CardDescription>Two-column professional layout, ready for PDF or Word export.</CardDescription>
                     </div>
                     <div className="flex flex-col gap-2 sm:flex-row">
                       <Button variant="outline" onClick={() => downloadATSReadableCVAsPDF(generatedCV, fileNameBase)}>
@@ -792,15 +973,13 @@ export default function CVBuilderPage() {
                   <div
                     style={{
                       background: '#fff',
-                      padding: '40px',
-                      fontFamily: 'Inter, sans-serif',
-                      color: '#000',
-                      lineHeight: 1.6,
+                      padding: '36px 40px',
+                      fontFamily: 'Inter, Roboto, Arial, sans-serif',
                       borderRadius: 8,
                       boxShadow: 'inset 0 0 0 1px #e5e7eb',
                     }}
                   >
-                    {renderCVPreview(generatedCV)}
+                    <TwoColumnCVPreview cvText={generatedCV} />
                   </div>
                 </CardContent>
               </Card>

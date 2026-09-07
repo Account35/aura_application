@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 
 // ---------------------------------------------------------------------------
-// Shared markdown-stripping parser (mirrors CVBuilderPage logic)
+// Shared markdown-stripping helpers
 // ---------------------------------------------------------------------------
 
 function stripHeadingMarkers(raw: string): string {
@@ -99,6 +99,112 @@ function parseCVTokens(cvText: string): ParsedToken[] {
   return tokens;
 }
 
+// ---------------------------------------------------------------------------
+// Section routing helpers (mirrors CVBuilderPage logic)
+// ---------------------------------------------------------------------------
+
+const LEFT_SECTIONS = new Set([
+  'SUMMARY', 'PERSONAL SUMMARY', 'PROFILE', 'OBJECTIVE',
+  'EXPERIENCE', 'WORK EXPERIENCE', 'EMPLOYMENT', 'EMPLOYMENT HISTORY',
+  'CERTIFICATIONS', 'CERTIFICATIONS AND ACHIEVEMENTS', 'PROJECTS', 'CERTIFICATES',
+  'LANGUAGES', 'TRAINING', 'COURSES', 'TRAINING AND COURSES',
+]);
+
+const RIGHT_SECTIONS = new Set([
+  'KEY ACHIEVEMENTS', 'ACHIEVEMENTS',
+  'SKILLS', 'TECHNICAL SKILLS', 'SOFT SKILLS',
+  'CORE COMPETENCIES', 'COMPETENCIES',
+  'EDUCATION', 'EDUCATION AND QUALIFICATIONS', 'QUALIFICATIONS',
+  'REFERENCES',
+]);
+
+function getSectionSide(heading: string): 'left' | 'right' {
+  const upper = heading.toUpperCase().trim();
+  if (LEFT_SECTIONS.has(upper)) return 'left';
+  if (RIGHT_SECTIONS.has(upper)) return 'right';
+  for (const s of LEFT_SECTIONS) if (upper.includes(s)) return 'left';
+  for (const s of RIGHT_SECTIONS) if (upper.includes(s)) return 'right';
+  return 'left';
+}
+
+// ---------------------------------------------------------------------------
+// Language proficiency bar parser
+// ---------------------------------------------------------------------------
+
+function parseLanguageLine(text: string): { lang: string; level: number } | null {
+  const patterns = [/^(.+?)[\s\-–:]+(.+)$/, /^(.+?)\s+\((.+?)\)$/];
+  const levels: Record<string, number> = {
+    native: 5, fluent: 5, advanced: 4, proficient: 4,
+    intermediate: 3, conversational: 2, basic: 1, beginner: 1,
+  };
+  for (const pat of patterns) {
+    const m = text.match(pat);
+    if (m) {
+      const score = levels[m[2].trim().toLowerCase()];
+      if (score !== undefined) return { lang: m[1].trim(), level: score };
+    }
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Columnar token structure
+// ---------------------------------------------------------------------------
+
+interface ColSection {
+  heading: string;
+  tokens: ParsedToken[];
+}
+
+function buildColumns(tokens: ParsedToken[]): {
+  name: string;
+  contact: string;
+  left: ColSection[];
+  right: ColSection[];
+} {
+  let name = '';
+  let contact = '';
+  const left: ColSection[] = [];
+  const right: ColSection[] = [];
+  let currentSide: 'left' | 'right' = 'left';
+  let currentSection: ColSection | null = null;
+
+  const flush = () => {
+    if (!currentSection) return;
+    if (currentSide === 'left') left.push(currentSection);
+    else right.push(currentSection);
+    currentSection = null;
+  };
+
+  for (const token of tokens) {
+    if (token.kind === 'name') { name = token.text; continue; }
+    if (token.kind === 'contact') { if (!contact) contact = token.text; continue; }
+    if (token.kind === 'divider') continue;
+    if (token.kind === 'heading') {
+      flush();
+      currentSide = getSectionSide(token.text);
+      currentSection = { heading: token.text, tokens: [] };
+      continue;
+    }
+    if (currentSection) currentSection.tokens.push(token);
+  }
+  flush();
+
+  return { name, contact, left, right };
+}
+
+// ---------------------------------------------------------------------------
+// Helper: safe filename part
+// ---------------------------------------------------------------------------
+
+function safeFilePart(value: string): string {
+  return value.replace(/[^a-z0-9]/gi, '-').replace(/-+/g, '-').toLowerCase() || 'cv';
+}
+
+// ---------------------------------------------------------------------------
+// Legacy single-column PDF (kept for backward-compat)
+// ---------------------------------------------------------------------------
+
 export function downloadCVAsPDF(cvText: string, jobTitle: string): void {
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
 
@@ -112,12 +218,10 @@ export function downloadCVAsPDF(cvText: string, jobTitle: string): void {
 
   let y = marginTop;
 
-  // ── Header ────────────────────────────────────────────────────────────────
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11);
   doc.setTextColor(100, 100, 100);
-  const headerText = `Personalised CV — ${jobTitle}`;
-  doc.text(headerText, pageWidth / 2, y, { align: 'center' });
+  doc.text(`Personalised CV \u2014 ${jobTitle}`, pageWidth / 2, y, { align: 'center' });
   y += 4;
 
   doc.setDrawColor(200, 200, 200);
@@ -125,26 +229,22 @@ export function downloadCVAsPDF(cvText: string, jobTitle: string): void {
   doc.line(marginLeft, y, pageWidth - marginRight, y);
   y += 20;
 
-  // ── Body: parse lines and sections ───────────────────────────────────────
   const lines = cvText.split('\n');
 
   for (const raw of lines) {
     const line = raw.trimEnd();
-
-    // Detect ALL-CAPS section headings (e.g. PROFESSIONAL SUMMARY)
     const isSectionHeading =
       line.trim().length > 0 &&
       line.trim() === line.trim().toUpperCase() &&
       line.trim().length > 3;
 
     if (isSectionHeading) {
-      y += 6; // breathing room before heading
+      y += 6;
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(10);
       doc.setTextColor(40, 40, 40);
       doc.text(line.trim(), marginLeft, y);
       y += 3;
-      // Underline the heading
       doc.setDrawColor(160, 160, 160);
       doc.setLineWidth(0.4);
       doc.line(marginLeft, y, pageWidth - marginRight, y);
@@ -152,13 +252,8 @@ export function downloadCVAsPDF(cvText: string, jobTitle: string): void {
       continue;
     }
 
-    // Empty line → paragraph gap
-    if (line.trim() === '') {
-      y += 6;
-      continue;
-    }
+    if (line.trim() === '') { y += 6; continue; }
 
-    // Regular body text
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9.5);
     doc.setTextColor(30, 30, 30);
@@ -166,11 +261,9 @@ export function downloadCVAsPDF(cvText: string, jobTitle: string): void {
     const wrapped = doc.splitTextToSize(line, contentWidth);
     for (const wrappedLine of wrapped) {
       if (y + 14 > pageHeight - marginBottom) {
-        // Add footer line on current page
         doc.setDrawColor(200, 200, 200);
         doc.setLineWidth(0.5);
         doc.line(marginLeft, pageHeight - marginBottom + 6, pageWidth - marginRight, pageHeight - marginBottom + 6);
-
         doc.addPage();
         y = marginTop;
       }
@@ -179,127 +272,241 @@ export function downloadCVAsPDF(cvText: string, jobTitle: string): void {
     }
   }
 
-  // ── Footer on last page ───────────────────────────────────────────────────
   doc.setDrawColor(200, 200, 200);
   doc.setLineWidth(0.5);
   doc.line(marginLeft, pageHeight - marginBottom + 6, pageWidth - marginRight, pageHeight - marginBottom + 6);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   doc.setTextColor(150, 150, 150);
-  doc.text('Generated by Aur.a · ATS-Optimised CV', pageWidth / 2, pageHeight - marginBottom + 18, {
-    align: 'center',
-  });
+  doc.text('Generated by Aur.a \u00b7 ATS-Optimised CV', pageWidth / 2, pageHeight - marginBottom + 18, { align: 'center' });
 
-  const safeTitle = jobTitle.replace(/[^a-z0-9]/gi, '-').toLowerCase();
-  doc.save(`personalised-cv-${safeTitle}.pdf`);
+  doc.save(`personalised-cv-${safeFilePart(jobTitle)}.pdf`);
 }
 
-function safeFilePart(value: string): string {
-  return value.replace(/[^a-z0-9]/gi, '-').replace(/-+/g, '-').toLowerCase() || 'cv';
-}
+// ---------------------------------------------------------------------------
+// Two-column PDF download
+// ---------------------------------------------------------------------------
 
 export function downloadATSReadableCVAsPDF(cvText: string, fileNameBase: string): void {
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
-  const margin = 40;
-  const contentWidth = pageWidth - margin * 2;
-  const lh = 15.6;
-  let y = margin + 16;
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
 
-  const ensureSpace = (h: number) => {
-    if (y + h <= pageHeight - margin) return;
+  const marginT = 44;
+  const marginB = 44;
+  const marginL = 44;
+  const marginR = 44;
+
+  const bodyW = pageW - marginL - marginR;
+  const colGap = 12;
+  const leftW = Math.floor(bodyW * 0.635);
+  const rightW = bodyW - leftW - colGap;
+  const leftX = marginL;
+  const rightX = marginL + leftW + colGap;
+
+  const BLUE = [26, 115, 232] as [number, number, number];
+  const DARK = [51, 51, 51] as [number, number, number];
+  const GRAY = [107, 114, 128] as [number, number, number];
+  const LIGHT_GRAY = [209, 213, 219] as [number, number, number];
+
+  const lhBody = 14;
+  const lhSmall = 12.5;
+
+  // Track Y per column, per page
+  let leftY = marginT;
+  let rightY = marginT;
+
+  // ── Header (full width) ───────────────────────────────────────────────────
+  const tokens = parseCVTokens(cvText);
+  const { name, contact, left, right } = buildColumns(tokens);
+
+  let hY = marginT;
+
+  // Name
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(20);
+  doc.setTextColor(...DARK);
+  doc.text(name.toUpperCase(), pageW / 2, hY, { align: 'center' });
+  hY += 18;
+
+  // Contact row
+  if (contact) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(...GRAY);
+    const contactParts = contact.split(/\s*[|•·]\s*/).filter(Boolean);
+    const contactLine = contactParts.join('   ·   ');
+    doc.text(contactLine, pageW / 2, hY, { align: 'center' });
+    hY += 12;
+  }
+
+  // Full-width hr
+  doc.setDrawColor(...DARK);
+  doc.setLineWidth(1);
+  doc.line(marginL, hY, pageW - marginR, hY);
+  hY += 14;
+
+  leftY = hY;
+  rightY = hY;
+
+  // ── Column rendering helpers ──────────────────────────────────────────────
+
+  const ensureSpace = (colX: number, neededH: number, colYRef: { v: number }) => {
+    if (colYRef.v + neededH <= pageH - marginB) return;
+    // Add new page and reset both columns
     doc.addPage();
-    y = margin + 16;
+    leftY = marginT;
+    rightY = marginT;
+    colYRef.v = marginT;
   };
 
-  const tokens = parseCVTokens(cvText);
+  const renderSection = (
+    section: ColSection,
+    colX: number,
+    colWidth: number,
+    colYRef: { v: number }
+  ) => {
+    const isLanguages = /LANGUAGE/i.test(section.heading);
+    const isRight = colX === rightX;
 
-  for (const token of tokens) {
-    switch (token.kind) {
-      case 'name':
-        ensureSpace(28);
+    // HR above section
+    ensureSpace(colX, 18, colYRef);
+    doc.setDrawColor(...DARK);
+    doc.setLineWidth(0.8);
+    doc.line(colX, colYRef.v, colX + colWidth, colYRef.v);
+    colYRef.v += 4;
+
+    // Section heading
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(isRight ? 8.5 : 9);
+    doc.setTextColor(...DARK);
+    doc.text(section.heading.toUpperCase(), colX, colYRef.v);
+    colYRef.v += isRight ? 10 : 11;
+
+    // Tokens
+    for (const token of section.tokens) {
+      if (token.kind === 'entry') {
+        ensureSpace(colX, lhBody, colYRef);
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(22);
-        doc.setTextColor(0, 0, 0);
-        doc.text(token.text, pageWidth / 2, y, { align: 'center' });
-        y += 22;
-        break;
-
-      case 'contact':
-        ensureSpace(16);
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(11);
-        doc.setTextColor(0, 0, 0);
-        doc.text(token.text, pageWidth / 2, y, { align: 'center' });
-        y += 10;
-        break;
-
-      case 'divider':
-        doc.setDrawColor(180, 180, 180);
-        doc.setLineWidth(0.5);
-        doc.line(margin, y, pageWidth - margin, y);
-        y += 12;
-        break;
-
-      case 'heading':
-        ensureSpace(28);
-        y += 8;
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(11);
-        doc.setTextColor(0, 0, 0);
-        doc.text(token.text, margin, y);
-        y += 4;
-        doc.setDrawColor(180, 180, 180);
-        doc.setLineWidth(0.5);
-        doc.line(margin, y, pageWidth - margin, y);
-        y += 10;
-        break;
-
-      case 'bullet': {
-        const wrapped = doc.splitTextToSize(`\u2022 ${token.text}`, contentWidth - 16);
-        for (const wl of wrapped) {
-          ensureSpace(lh);
-          doc.setFont('helvetica', 'normal');
-          doc.setFontSize(11);
-          doc.setTextColor(0, 0, 0);
-          doc.text(wl, margin + 12, y);
-          y += lh;
-        }
-        break;
-      }
-
-      case 'entry':
-        ensureSpace(lh + 4);
-        y += 4;
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(11);
-        doc.setTextColor(0, 0, 0);
-        doc.text(token.left, margin, y);
+        doc.setFontSize(isRight ? 8.5 : 9.5);
+        doc.setTextColor(...DARK);
+        // Left portion
+        const leftMaxW = token.right ? colWidth * 0.65 : colWidth;
+        const leftWrapped = doc.splitTextToSize(token.left, leftMaxW);
+        doc.text(leftWrapped[0], colX, colYRef.v);
+        // Right date
         if (token.right) {
           doc.setFont('helvetica', 'normal');
-          doc.text(token.right, pageWidth - margin, y, { align: 'right' });
+          doc.setFontSize(8);
+          doc.setTextColor(...GRAY);
+          doc.text(token.right, colX + colWidth, colYRef.v, { align: 'right' });
         }
-        y += lh;
-        break;
-
-      case 'plain': {
-        const wrapped = doc.splitTextToSize(token.text, contentWidth);
+        colYRef.v += lhSmall;
+      } else if (token.kind === 'bullet') {
+        ensureSpace(colX, lhSmall, colYRef);
+        const bulletW = colWidth - 10;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(isRight ? 8 : 8.5);
+        doc.setTextColor(...DARK);
+        const wrapped = doc.splitTextToSize(token.text, bulletW);
+        // Blue arrow bullet
+        doc.setTextColor(...BLUE);
+        doc.text('\u25b8', colX + 1, colYRef.v);
+        doc.setTextColor(...DARK);
+        for (let wi = 0; wi < wrapped.length; wi++) {
+          ensureSpace(colX, lhSmall, colYRef);
+          doc.text(wrapped[wi], colX + 8, colYRef.v);
+          colYRef.v += wi < wrapped.length - 1 ? lhSmall : lhSmall - 1;
+        }
+      } else if (token.kind === 'plain') {
+        if (isLanguages) {
+          const parsed = parseLanguageLine(token.text);
+          if (parsed) {
+            ensureSpace(colX, 14, colYRef);
+            // Language name
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(8.5);
+            doc.setTextColor(...DARK);
+            doc.text(parsed.lang, colX, colYRef.v);
+            // Pill bars
+            const barStartX = colX + 62;
+            const barW = 16;
+            const barH = 5;
+            const barGap = 3;
+            const barY = colYRef.v - barH + 1;
+            for (let n = 1; n <= 5; n++) {
+              const bx = barStartX + (n - 1) * (barW + barGap);
+              if (n <= parsed.level) {
+                doc.setFillColor(...BLUE);
+              } else {
+                doc.setFillColor(...LIGHT_GRAY);
+              }
+              doc.roundedRect(bx, barY, barW, barH, 2, 2, 'F');
+            }
+            colYRef.v += 12;
+            continue;
+          }
+        }
+        ensureSpace(colX, lhSmall, colYRef);
+        const wrapped = doc.splitTextToSize(token.text, colWidth);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(isRight ? 8 : 8.5);
+        doc.setTextColor(80, 80, 80);
         for (const wl of wrapped) {
-          ensureSpace(lh);
-          doc.setFont('helvetica', 'normal');
-          doc.setFontSize(11);
-          doc.setTextColor(0, 0, 0);
-          doc.text(wl, margin, y);
-          y += lh;
+          ensureSpace(colX, lhSmall, colYRef);
+          doc.text(wl, colX, colYRef.v);
+          colYRef.v += lhSmall;
         }
-        break;
+      } else if (token.kind === 'heading') {
+        // Sub-heading within a section
+        ensureSpace(colX, lhSmall, colYRef);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(isRight ? 7.5 : 8.5);
+        doc.setTextColor(...DARK);
+        doc.text(token.text.toUpperCase(), colX, colYRef.v);
+        colYRef.v += lhSmall - 1;
       }
     }
+
+    colYRef.v += 8; // gap after section
+  };
+
+  // ── Render left and right columns ─────────────────────────────────────────
+  const leftRef = { v: leftY };
+  const rightRef = { v: rightY };
+
+  for (const section of left) {
+    renderSection(section, leftX, leftW, leftRef);
+    // Sync leftY global
+    leftY = leftRef.v;
+  }
+  for (const section of right) {
+    renderSection(section, rightX, rightW, rightRef);
+    rightY = rightRef.v;
+  }
+
+  // Draw vertical separator between columns (on first page only approximation)
+  const separatorH = Math.max(leftY, rightY) - hY;
+  doc.setDrawColor(220, 220, 220);
+  doc.setLineWidth(0.5);
+  doc.line(marginL + leftW + colGap / 2, hY, marginL + leftW + colGap / 2, hY + separatorH);
+
+  // Footer
+  const totalPages = (doc.internal as any).getNumberOfPages?.() ?? 1;
+  for (let p = 1; p <= totalPages; p++) {
+    doc.setPage(p);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(180, 180, 180);
+    doc.text('Generated by Aur.a', pageW / 2, pageH - 20, { align: 'center' });
   }
 
   doc.save(`${safeFilePart(fileNameBase)}.pdf`);
 }
+
+// ---------------------------------------------------------------------------
+// HTML escape helper
+// ---------------------------------------------------------------------------
 
 function escapeHtml(value: string): string {
   return value
@@ -309,55 +516,127 @@ function escapeHtml(value: string): string {
     .replace(/"/g, '&quot;');
 }
 
+// ---------------------------------------------------------------------------
+// Two-column Word (HTML) download
+// ---------------------------------------------------------------------------
+
 export function downloadATSReadableCVAsWord(cvText: string, fileNameBase: string): void {
   const tokens = parseCVTokens(cvText);
-  const bodyParts: string[] = [];
+  const { name, contact, left, right } = buildColumns(tokens);
 
-  for (const token of tokens) {
-    switch (token.kind) {
-      case 'name':
-        bodyParts.push(`<h1>${escapeHtml(token.text)}</h1>`);
-        break;
-      case 'contact':
-        bodyParts.push(`<p class="contact">${escapeHtml(token.text)}</p>`);
-        break;
-      case 'divider':
-        bodyParts.push('<hr class="divider" />');
-        break;
-      case 'heading':
-        bodyParts.push(`<h2>${escapeHtml(token.text)}</h2>`);
-        break;
-      case 'bullet':
-        bodyParts.push(`<p class="bullet">\u2022 ${escapeHtml(token.text)}</p>`);
-        break;
-      case 'entry':
-        bodyParts.push(
-          `<p class="entry-header"><strong>${escapeHtml(token.left)}</strong>${token.right ? `<span class="date">${escapeHtml(token.right)}</span>` : ''}</p>`
-        );
-        break;
-      case 'plain':
-        bodyParts.push(`<p>${escapeHtml(token.text)}</p>`);
-        break;
+  function renderColSections(sections: ColSection[], isRight: boolean): string {
+    const fs = isRight ? '10px' : '11px';
+    const headFs = isRight ? '9px' : '10px';
+    const parts: string[] = [];
+
+    for (const section of sections) {
+      const isLang = /LANGUAGE/i.test(section.heading);
+      parts.push(`<div class="cv-section">`);
+      parts.push(`<hr class="section-hr" />`);
+      parts.push(`<p class="section-heading" style="font-size:${headFs}">${escapeHtml(section.heading)}</p>`);
+
+      if (isLang) {
+        for (const t of section.tokens) {
+          if (t.kind !== 'plain' && t.kind !== 'bullet') continue;
+          const text = (t as any).text as string;
+          const parsed = parseLanguageLine(text);
+          if (parsed) {
+            const bars = [1,2,3,4,5].map(n =>
+              `<span class="pill${n <= parsed.level ? ' pill-active' : ''}"></span>`
+            ).join('');
+            parts.push(`<div class="lang-row"><span class="lang-name">${escapeHtml(parsed.lang)}</span><span class="pills">${bars}</span></div>`);
+          } else {
+            parts.push(`<p style="font-size:${fs};margin:0 0 2px;color:#555">${escapeHtml(text)}</p>`);
+          }
+        }
+      } else {
+        for (const t of section.tokens) {
+          if (t.kind === 'entry') {
+            parts.push(`<div class="entry-row"><strong style="font-size:${fs}">${escapeHtml(t.left)}</strong>${t.right ? `<span class="date">${escapeHtml(t.right)}</span>` : ''}</div>`);
+          } else if (t.kind === 'bullet') {
+            parts.push(`<div class="bullet-row" style="font-size:${fs}"><span class="bullet-arrow">&#9656;</span><span>${escapeHtml(t.text)}</span></div>`);
+          } else if (t.kind === 'plain') {
+            parts.push(`<p style="font-size:${fs};margin:0 0 3px;color:#555;line-height:1.55">${escapeHtml(t.text)}</p>`);
+          } else if (t.kind === 'heading') {
+            parts.push(`<p style="font-size:${headFs};font-weight:700;color:#333;text-transform:uppercase;margin:6px 0 2px;letter-spacing:.03em">${escapeHtml(t.text)}</p>`);
+          }
+        }
+      }
+
+      parts.push(`</div>`);
     }
+
+    return parts.join('\n');
   }
+
+  // Contact parts
+  const contactParts = contact.split(/\s*[|•·]\s*/).filter(Boolean);
+  const contactHtml = contactParts
+    .map(p => `<span class="contact-item">${escapeHtml(p)}</span>`)
+    .join('<span class="contact-sep">·</span>');
+
+  const leftHtml = renderColSections(left, false);
+  const rightHtml = renderColSections(right, true);
 
   const html = `<!doctype html>
 <html>
 <head>
 <meta charset="utf-8">
 <style>
-body { font-family: Arial, sans-serif; color: #000000; font-size: 13px; line-height: 1.6; margin: 40px; }
-h1 { font-size: 22px; font-weight: 700; text-align: center; margin: 0 0 4px; }
-p.contact { font-size: 13px; font-weight: 400; text-align: center; margin: 0 0 8px; }
-hr.divider { border: none; border-top: 1px solid #cccccc; margin: 4px 0 12px; }
-h2 { font-size: 13px; font-weight: 700; text-transform: uppercase; margin: 14px 0 0; padding-bottom: 3px; border-bottom: 1px solid #cccccc; }
-p { font-size: 13px; margin: 0 0 2px; }
-p.bullet { margin-left: 16px; }
-p.entry-header { display: flex; justify-content: space-between; font-weight: 700; margin-top: 6px; margin-bottom: 0; }
-p.entry-header .date { font-weight: 400; }
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Inter, Arial, sans-serif; color: #333; font-size: 11px; line-height: 1.55; background: #fff; padding: 36px 44px; }
+
+  /* Header */
+  .cv-header { text-align: center; margin-bottom: 14px; }
+  .cv-name { font-size: 22px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: #1a1a1a; margin-bottom: 4px; }
+  .cv-contact { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 12px; font-size: 10px; color: #555; margin-top: 6px; }
+  .contact-item { display: inline-flex; align-items: center; gap: 3px; }
+  .contact-sep { color: #1A73E8; margin: 0 4px; font-weight: 700; }
+
+  /* Full-width header divider */
+  .header-hr { border: none; border-top: 1.5px solid #333; margin: 10px 0 14px; }
+
+  /* Two-column grid */
+  .cv-body { display: table; width: 100%; table-layout: fixed; }
+  .col-left { display: table-cell; width: 64%; vertical-align: top; padding-right: 10px; }
+  .col-divider { display: table-cell; width: 1px; vertical-align: top; background: #e5e7eb; }
+  .col-right { display: table-cell; width: 35%; vertical-align: top; padding-left: 10px; }
+
+  /* Sections */
+  .cv-section { margin-bottom: 14px; }
+  .section-hr { border: none; border-top: 1.5px solid #333; margin: 0 0 4px; }
+  .section-heading { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #333; margin-bottom: 7px; }
+
+  /* Entry rows */
+  .entry-row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 2px; }
+  .entry-row strong { color: #333; }
+  .date { font-size: 9px; color: #6b7280; flex-shrink: 0; margin-left: 6px; font-weight: 400; }
+
+  /* Bullet rows */
+  .bullet-row { display: flex; align-items: flex-start; gap: 5px; margin-bottom: 3px; line-height: 1.55; color: #333; }
+  .bullet-arrow { color: #1A73E8; font-size: 10px; flex-shrink: 0; padding-top: 1px; }
+
+  /* Language pills */
+  .lang-row { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+  .lang-name { font-size: 10px; color: #333; width: 72px; flex-shrink: 0; }
+  .pills { display: flex; gap: 3px; }
+  .pill { display: inline-block; width: 18px; height: 7px; border-radius: 4px; background: #d1d5db; }
+  .pill.pill-active { background: #1A73E8; }
 </style>
 </head>
-<body>${bodyParts.join('')}</body>
+<body>
+  <div class="cv-header">
+    <div class="cv-name">${escapeHtml(name)}</div>
+    <div class="cv-contact">${contactHtml}</div>
+  </div>
+  <hr class="header-hr" />
+  <div class="cv-body">
+    <div class="col-left">${leftHtml}</div>
+    <div class="col-divider">&nbsp;</div>
+    <div class="col-right">${rightHtml}</div>
+  </div>
+</body>
 </html>`;
 
   const blob = new Blob([html], { type: 'application/msword;charset=utf-8' });
