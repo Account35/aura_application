@@ -116,7 +116,18 @@ ${data.personalDetails.targetJobTitle}
 Candidate CV Builder Data:
 ${JSON.stringify(data, null, 2)}
 
-Generate the final CV using the exact ATS-readable layout rules.`;
+Generate a clean, modern, single-page CV for the target role using the candidate data above.
+
+Output requirements:
+- Return plain text only. Do not use Markdown syntax such as #, **, *, backticks, tables, or HTML.
+- The first line must be the candidate's uppercase full name.
+- The second line must contain the target job title followed by phone, email, LinkedIn or portfolio, and location, separated with | characters.
+- Use these uppercase section headings exactly where applicable: SUMMARY, EXPERIENCE, CUSTOM, LANGUAGES, TRAINING / COURSES, KEY ACHIEVEMENTS, SKILLS, CORE COMPETENCIES, and EDUCATION.
+- Put SUMMARY, EXPERIENCE, CUSTOM, LANGUAGES, and TRAINING / COURSES before the right-column sections. Put KEY ACHIEVEMENTS, SKILLS, CORE COMPETENCIES, and EDUCATION after them so the renderer places them in the right column.
+- For each experience entry, use a job title line, then a company and location line with the date range separated by at least two spaces, followed by concise responsibility lines beginning with a hyphen.
+- Use the same job-entry format for education, training, achievements, and custom entries where useful.
+- Format languages as one per line using the language name, a hyphen, and one of: Native, Fluent, Advanced, Proficient, Intermediate, Conversational, Basic, or Beginner.
+- Keep wording concise and achievement-focused. Do not invent employers, qualifications, dates, contact details, metrics, or technologies that are not present in the source data.`;
 }
 
 function isCVStarted(data: CVBuilderData): boolean {
@@ -285,7 +296,7 @@ function parseCV(cvText: string): ParsedLine[] {
 const LEFT_SECTIONS = new Set([
   'SUMMARY', 'PERSONAL SUMMARY', 'PROFILE', 'OBJECTIVE',
   'EXPERIENCE', 'WORK EXPERIENCE', 'EMPLOYMENT', 'EMPLOYMENT HISTORY',
-  'CERTIFICATIONS', 'CERTIFICATIONS AND ACHIEVEMENTS', 'PROJECTS', 'CERTIFICATES',
+  'CUSTOM', 'CERTIFICATIONS', 'CERTIFICATIONS AND ACHIEVEMENTS', 'PROJECTS', 'CERTIFICATES',
   'LANGUAGES', 'TRAINING', 'COURSES', 'TRAINING AND COURSES',
 ]);
 

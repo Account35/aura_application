@@ -106,7 +106,7 @@ function parseCVTokens(cvText: string): ParsedToken[] {
 const LEFT_SECTIONS = new Set([
   'SUMMARY', 'PERSONAL SUMMARY', 'PROFILE', 'OBJECTIVE',
   'EXPERIENCE', 'WORK EXPERIENCE', 'EMPLOYMENT', 'EMPLOYMENT HISTORY',
-  'CERTIFICATIONS', 'CERTIFICATIONS AND ACHIEVEMENTS', 'PROJECTS', 'CERTIFICATES',
+  'CUSTOM', 'CERTIFICATIONS', 'CERTIFICATIONS AND ACHIEVEMENTS', 'PROJECTS', 'CERTIFICATES',
   'LANGUAGES', 'TRAINING', 'COURSES', 'TRAINING AND COURSES',
 ]);
 
@@ -319,6 +319,8 @@ export function downloadATSReadableCVAsPDF(cvText: string, fileNameBase: string)
   // ── Header (full width) ───────────────────────────────────────────────────
   const tokens = parseCVTokens(cvText);
   const { name, contact, left, right } = buildColumns(tokens);
+  const contactParts = contact.split(/\s*[|•·]\s*/).filter(Boolean);
+  const subtitle = contactParts.shift() || '';
 
   let hY = marginT;
 
@@ -329,12 +331,19 @@ export function downloadATSReadableCVAsPDF(cvText: string, fileNameBase: string)
   doc.text(name.toUpperCase(), pageW / 2, hY, { align: 'center' });
   hY += 18;
 
+  if (subtitle) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.setTextColor(...BLUE);
+    doc.text(subtitle, pageW / 2, hY, { align: 'center' });
+    hY += 13;
+  }
+
   // Contact row
-  if (contact) {
+  if (contactParts.length) {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
     doc.setTextColor(...GRAY);
-    const contactParts = contact.split(/\s*[|•·]\s*/).filter(Boolean);
     const contactLine = contactParts.join('   ·   ');
     doc.text(contactLine, pageW / 2, hY, { align: 'center' });
     hY += 12;
@@ -523,6 +532,8 @@ function escapeHtml(value: string): string {
 export function downloadATSReadableCVAsWord(cvText: string, fileNameBase: string): void {
   const tokens = parseCVTokens(cvText);
   const { name, contact, left, right } = buildColumns(tokens);
+  const contactParts = contact.split(/\s*[|•·]\s*/).filter(Boolean);
+  const subtitle = contactParts.shift() || '';
 
   function renderColSections(sections: ColSection[], isRight: boolean): string {
     const fs = isRight ? '10px' : '11px';
@@ -570,7 +581,6 @@ export function downloadATSReadableCVAsWord(cvText: string, fileNameBase: string
   }
 
   // Contact parts
-  const contactParts = contact.split(/\s*[|•·]\s*/).filter(Boolean);
   const contactHtml = contactParts
     .map(p => `<span class="contact-item">${escapeHtml(p)}</span>`)
     .join('<span class="contact-sep">·</span>');
@@ -590,6 +600,7 @@ export function downloadATSReadableCVAsWord(cvText: string, fileNameBase: string
   /* Header */
   .cv-header { text-align: center; margin-bottom: 14px; }
   .cv-name { font-size: 22px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: #1a1a1a; margin-bottom: 4px; }
+  .cv-subtitle { color: #1A73E8; font-size: 11px; margin-bottom: 5px; }
   .cv-contact { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 12px; font-size: 10px; color: #555; margin-top: 6px; }
   .contact-item { display: inline-flex; align-items: center; gap: 3px; }
   .contact-sep { color: #1A73E8; margin: 0 4px; font-weight: 700; }
@@ -628,6 +639,7 @@ export function downloadATSReadableCVAsWord(cvText: string, fileNameBase: string
 <body>
   <div class="cv-header">
     <div class="cv-name">${escapeHtml(name)}</div>
+    ${subtitle ? `<div class="cv-subtitle">${escapeHtml(subtitle)}</div>` : ''}
     <div class="cv-contact">${contactHtml}</div>
   </div>
   <hr class="header-hr" />
