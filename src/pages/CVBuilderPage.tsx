@@ -151,6 +151,8 @@ function stripHeadingMarkers(raw: string): string {
 /** Strip inline markdown: **bold**, *italic*, _italic_, `code`, <tags> */
 function stripInlineMarkdown(text: string): string {
   return text
+    .replace(/^\s*#{1,6}\s*/, '')
+    .replace(/^\s*[%•-]\s+/, '')
     .replace(/\*\*(.+?)\*\*/g, '$1')   // **bold**
     .replace(/\*(.+?)\*/g, '$1')        // *italic*
     .replace(/_{1,2}(.+?)_{1,2}/g, '$1') // _italic_ or __bold__
@@ -317,6 +319,52 @@ function getSectionSide(heading: string): 'left' | 'right' | null {
   return null;
 }
 
+function canonicalSectionHeading(heading: string): string {
+  const upper = stripInlineMarkdown(heading).toUpperCase().trim();
+  if (upper.includes('CORE COMPETENC')) return 'SKILLS & CORE COMPETENCIES';
+  if (upper === 'SKILLS' || upper.includes('TECHNICAL SKILLS') || upper.includes('SOFT SKILLS')) {
+    return 'SKILLS & CORE COMPETENCIES';
+  }
+  if (upper.includes('KEY ACHIEVEMENT') || upper === 'ACHIEVEMENTS') return 'KEY ACHIEVEMENTS';
+  if (upper.includes('PERSONAL SUMMARY') || upper === 'PROFILE' || upper === 'OBJECTIVE') return 'SUMMARY';
+  return upper;
+}
+
+function normalizePreviewSections(sections: CVSection[]): CVSection[] {
+  const merged = new Map<string, CVSection>();
+  const experienceText = new Set(
+    sections
+      .filter((section) => /EXPERIENCE|EMPLOYMENT/i.test(section.heading))
+      .flatMap((section) => section.tokens)
+      .filter((token) => token.kind === 'plain' || token.kind === 'bullet')
+      .map((token) => token.text.toLowerCase().replace(/\W+/g, ' ').trim())
+  );
+
+  for (const section of sections) {
+    const heading = canonicalSectionHeading(section.heading);
+    const tokens = section.tokens.filter((token) => {
+      if (token.kind === 'plain' || token.kind === 'bullet') return Boolean(token.text.trim());
+      return true;
+    });
+    const filteredTokens = heading === 'KEY ACHIEVEMENTS'
+      ? tokens.filter((token) => {
+          if (token.kind !== 'plain' && token.kind !== 'bullet') return true;
+          return !experienceText.has(token.text.toLowerCase().replace(/\W+/g, ' ').trim());
+        })
+      : tokens;
+    if (!filteredTokens.length) continue;
+
+    const existing = merged.get(heading);
+    if (existing) {
+      const seen = new Set(existing.tokens.map((token) => JSON.stringify(token)));
+      existing.tokens.push(...filteredTokens.filter((token) => !seen.has(JSON.stringify(token))));
+    } else {
+      merged.set(heading, { heading, tokens: filteredTokens });
+    }
+  }
+  return [...merged.values()];
+}
+
 // ---------------------------------------------------------------------------
 // Language proficiency bar parser
 // ---------------------------------------------------------------------------
@@ -405,7 +453,13 @@ function buildColumnSections(tokens: ParsedLine[]): {
   }
   flush();
 
-  return { name, subtitle, contact, left, right };
+  return {
+    name,
+    subtitle,
+    contact,
+    left: normalizePreviewSections(left),
+    right: normalizePreviewSections(right),
+  };
 }
 
 function SectionBlock({ section, isRight = false }: { section: CVSection; isRight?: boolean }) {
@@ -464,10 +518,9 @@ function SectionBlock({ section, isRight = false }: { section: CVSection; isRigh
             }
             if (token.kind === 'bullet') {
               return (
-                <div key={i} style={{ display: 'flex', gap: 5, marginBottom: 3, alignItems: 'flex-start' }}>
-                  <span style={{ color: '#1A73E8', fontSize: 11, lineHeight: 1.4, flexShrink: 0 }}>•</span>
-                  <p style={{ fontSize: fs, color: '#333333', lineHeight: 1.4, margin: 0, minWidth: 0, whiteSpace: 'normal', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{token.text}</p>
-                </div>
+                <ul key={i} style={{ margin: '0 0 3px', paddingLeft: 18, minWidth: 0, breakInside: 'avoid', pageBreakInside: 'avoid' }}>
+                  <li style={{ fontSize: fs, color: '#333333', lineHeight: 1.4, minWidth: 0, whiteSpace: 'normal', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{token.text}</li>
+                </ul>
               );
             }
             if (token.kind === 'plain') {
