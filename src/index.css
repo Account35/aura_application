@@ -1,10 +1,10 @@
+/* Inter font from Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
 /* stylelint-disable */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-/* Inter font from Google Fonts */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
 /* Aur.a Design System - Minimal Dark Theme
  * Background: #0F172A (222 47% 11%)

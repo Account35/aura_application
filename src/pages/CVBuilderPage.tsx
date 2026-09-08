@@ -184,8 +184,8 @@ function parseLine(raw: string): ParsedLine | null {
   }
 
   // Bullet: markdown list item (- or * at start) or existing • bullet
-  if (/^[-*]\s/.test(raw) || raw.trimStart().startsWith('•')) {
-    const bulletText = stripInlineMarkdown(raw.replace(/^[-*•]\s*/, '').trim());
+  if (/^[-*%]\s/.test(raw) || raw.trimStart().startsWith('•')) {
+    const bulletText = stripInlineMarkdown(raw.replace(/^[-*%•]\s*/, '').trim());
     return { kind: 'bullet', text: bulletText };
   }
 
@@ -414,11 +414,10 @@ function SectionBlock({ section, isRight = false }: { section: CVSection; isRigh
   const headFs = isRight ? 10 : 11;
 
   return (
-    <div style={{ marginBottom: 16 }}>
-      <hr style={{ border: 'none', borderTop: '1.5px solid #333333', margin: '0 0 4px' }} />
-      <p style={{ fontSize: headFs, fontWeight: 700, color: '#333333', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 8px' }}>
+    <section style={{ marginBottom: 16, boxSizing: 'border-box', overflow: 'visible', breakInside: 'avoid', pageBreakInside: 'avoid' }}>
+      <h2 style={{ fontSize: headFs, fontWeight: 700, color: '#333333', textTransform: 'uppercase', letterSpacing: '0.05em', lineHeight: 1.4, borderBottom: '1.5px solid #333333', paddingBottom: 4, margin: '0 0 8px', breakAfter: 'avoid', pageBreakAfter: 'avoid' }}>
         {section.heading}
-      </p>
+      </h2>
 
       {isLanguages ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -449,7 +448,7 @@ function SectionBlock({ section, isRight = false }: { section: CVSection; isRigh
             })}
         </div>
       ) : (
-        <div>
+        <div style={{ minWidth: 0, overflow: 'visible' }}>
           {section.tokens.map((token, i) => {
             if (token.kind === 'entry') {
               return (
@@ -466,21 +465,21 @@ function SectionBlock({ section, isRight = false }: { section: CVSection; isRigh
             if (token.kind === 'bullet') {
               return (
                 <div key={i} style={{ display: 'flex', gap: 5, marginBottom: 3, alignItems: 'flex-start' }}>
-                  <span style={{ color: '#1A73E8', fontSize: 11, lineHeight: '18px', flexShrink: 0 }}>▸</span>
-                  <p style={{ fontSize: fs, color: '#333333', lineHeight: 1.55, margin: 0 }}>{token.text}</p>
+                  <span style={{ color: '#1A73E8', fontSize: 11, lineHeight: 1.4, flexShrink: 0 }}>•</span>
+                  <p style={{ fontSize: fs, color: '#333333', lineHeight: 1.4, margin: 0, minWidth: 0, whiteSpace: 'normal', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{token.text}</p>
                 </div>
               );
             }
             if (token.kind === 'plain') {
               return (
-                <p key={i} style={{ fontSize: fs, color: '#555', lineHeight: 1.55, margin: '0 0 3px' }}>
+                <p key={i} style={{ fontSize: fs, color: '#555', lineHeight: 1.4, margin: '0 0 3px', whiteSpace: 'normal', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
                   {token.text}
                 </p>
               );
             }
             if (token.kind === 'heading') {
               return (
-                <p key={i} style={{ fontSize: headFs, fontWeight: 700, color: '#333333', margin: '6px 0 2px', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                <p key={i} style={{ fontSize: headFs, fontWeight: 700, color: '#333333', lineHeight: 1.4, margin: '6px 0 2px', textTransform: 'uppercase', letterSpacing: '0.03em', breakInside: 'avoid', pageBreakInside: 'avoid' }}>
                   {token.text}
                 </p>
               );
@@ -489,7 +488,7 @@ function SectionBlock({ section, isRight = false }: { section: CVSection; isRigh
           })}
         </div>
       )}
-    </div>
+    </section>
   );
 }
 
@@ -499,7 +498,7 @@ function TwoColumnCVPreview({ cvText }: { cvText: string }) {
   const contactParts = contact ? parseContactParts(contact) : [];
 
   return (
-    <div style={{ fontFamily: 'Inter, Roboto, Arial, sans-serif', color: '#333333', background: '#fff', lineHeight: 1.5 }}>
+    <div style={{ boxSizing: 'border-box', width: '100%', minWidth: 0, padding: '0 1.5rem', fontFamily: 'Inter, Roboto, Arial, sans-serif', color: '#333333', background: '#fff', lineHeight: 1.4, overflow: 'visible' }}>
       {/* Header */}
       <div style={{ marginBottom: 16 }}>
         <p style={{ fontSize: 22, fontWeight: 800, textAlign: 'center', color: '#1a1a1a', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 4px' }}>
@@ -529,19 +528,19 @@ function TwoColumnCVPreview({ cvText }: { cvText: string }) {
       <hr style={{ border: 'none', borderTop: '2px solid #333333', margin: '0 0 16px' }} />
 
       {/* Two-column body */}
-      <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20, alignItems: 'flex-start', width: '100%', minWidth: 0, overflow: 'visible' }}>
         {/* Left column ~65% */}
-        <div style={{ flex: '0 0 63%', maxWidth: '63%' }}>
+        <div style={{ flex: '1 1 calc(63% - 10px)', minWidth: 0, maxWidth: '100%', overflow: 'visible' }}>
           {left.map((section, i) => (
             <SectionBlock key={i} section={section} isRight={false} />
           ))}
         </div>
 
         {/* Vertical separator */}
-        <div style={{ width: 1, background: '#e5e7eb', alignSelf: 'stretch', flexShrink: 0 }} />
+        <div style={{ width: 1, background: '#e5e7eb', alignSelf: 'stretch', flex: '0 0 1px' }} />
 
         {/* Right column ~35% */}
-        <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ flex: '1 1 calc(37% - 10px)', minWidth: 0, maxWidth: '100%', overflow: 'visible' }}>
           {right.map((section, i) => (
             <SectionBlock key={i} section={section} isRight={true} />
           ))}

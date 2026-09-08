@@ -34,8 +34,8 @@ function parseLineToken(raw: string): ParsedToken | null {
   if (/^-{3,}$/.test(raw.trim()) || /^\*{3,}$/.test(raw.trim()) || /^_{3,}$/.test(raw.trim())) {
     return { kind: 'divider' };
   }
-  if (/^[-*]\s/.test(raw) || raw.trimStart().startsWith('\u2022')) {
-    return { kind: 'bullet', text: stripInlineMarkdown(raw.replace(/^[-*\u2022]\s*/, '').trim()) };
+  if (/^[-*%]\s/.test(raw) || raw.trimStart().startsWith('\u2022')) {
+    return { kind: 'bullet', text: stripInlineMarkdown(raw.replace(/^[-*%\u2022]\s*/, '').trim()) };
   }
   const trimmed = raw.trim();
   if (!trimmed) return null;
@@ -378,19 +378,17 @@ export function downloadATSReadableCVAsPDF(cvText: string, fileNameBase: string)
     const isLanguages = /LANGUAGE/i.test(section.heading);
     const isRight = colX === rightX;
 
-    // HR above section
-    ensureSpace(colX, 18, colYRef);
-    doc.setDrawColor(...DARK);
-    doc.setLineWidth(0.8);
-    doc.line(colX, colYRef.v, colX + colWidth, colYRef.v);
-    colYRef.v += 4;
-
     // Section heading
+    ensureSpace(colX, 22, colYRef);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(isRight ? 8.5 : 9);
     doc.setTextColor(...DARK);
     doc.text(section.heading.toUpperCase(), colX, colYRef.v);
-    colYRef.v += isRight ? 10 : 11;
+    colYRef.v += isRight ? 5 : 6;
+    doc.setDrawColor(...DARK);
+    doc.setLineWidth(0.8);
+    doc.line(colX, colYRef.v, colX + colWidth, colYRef.v);
+    colYRef.v += isRight ? 9 : 10;
 
     // Tokens
     for (const token of section.tokens) {
@@ -542,11 +540,11 @@ export function downloadATSReadableCVAsWord(cvText: string, fileNameBase: string
 
     for (const section of sections) {
       const isLang = /LANGUAGE/i.test(section.heading);
-      parts.push(`<div class="cv-section">`);
-      parts.push(`<hr class="section-hr" />`);
-      parts.push(`<p class="section-heading" style="font-size:${headFs}">${escapeHtml(section.heading)}</p>`);
+      parts.push(`<section class="cv-section">`);
+      parts.push(`<h2 class="section-heading" style="font-size:${headFs}">${escapeHtml(section.heading)}</h2>`);
 
       if (isLang) {
+        parts.push('<ul class="language-list">');
         for (const t of section.tokens) {
           if (t.kind !== 'plain' && t.kind !== 'bullet') continue;
           const text = (t as any).text as string;
@@ -555,26 +553,37 @@ export function downloadATSReadableCVAsWord(cvText: string, fileNameBase: string
             const bars = [1,2,3,4,5].map(n =>
               `<span class="pill${n <= parsed.level ? ' pill-active' : ''}"></span>`
             ).join('');
-            parts.push(`<div class="lang-row"><span class="lang-name">${escapeHtml(parsed.lang)}</span><span class="pills">${bars}</span></div>`);
+            parts.push(`<li class="lang-row"><span class="lang-name">${escapeHtml(parsed.lang)}</span><span class="pills">${bars}</span></li>`);
           } else {
-            parts.push(`<p style="font-size:${fs};margin:0 0 2px;color:#555">${escapeHtml(text)}</p>`);
+            parts.push(`<li class="plain-row" style="font-size:${fs}">${escapeHtml(text)}</li>`);
           }
         }
+        parts.push('</ul>');
       } else {
+        let bulletsOpen = false;
         for (const t of section.tokens) {
+          if (t.kind !== 'bullet' && bulletsOpen) {
+            parts.push('</ul>');
+            bulletsOpen = false;
+          }
           if (t.kind === 'entry') {
             parts.push(`<div class="entry-row"><strong style="font-size:${fs}">${escapeHtml(t.left)}</strong>${t.right ? `<span class="date">${escapeHtml(t.right)}</span>` : ''}</div>`);
           } else if (t.kind === 'bullet') {
-            parts.push(`<div class="bullet-row" style="font-size:${fs}"><span class="bullet-arrow">&#9656;</span><span>${escapeHtml(t.text)}</span></div>`);
+            if (!bulletsOpen) {
+              parts.push('<ul class="bullet-list">');
+              bulletsOpen = true;
+            }
+            parts.push(`<li class="bullet-row" style="font-size:${fs}">${escapeHtml(t.text)}</li>`);
           } else if (t.kind === 'plain') {
             parts.push(`<p style="font-size:${fs};margin:0 0 3px;color:#555;line-height:1.55">${escapeHtml(t.text)}</p>`);
           } else if (t.kind === 'heading') {
             parts.push(`<p style="font-size:${headFs};font-weight:700;color:#333;text-transform:uppercase;margin:6px 0 2px;letter-spacing:.03em">${escapeHtml(t.text)}</p>`);
           }
         }
+        if (bulletsOpen) parts.push('</ul>');
       }
 
-      parts.push(`</div>`);
+      parts.push(`</section>`);
     }
 
     return parts.join('\n');
@@ -594,8 +603,9 @@ export function downloadATSReadableCVAsWord(cvText: string, fileNameBase: string
 <meta charset="utf-8">
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: Inter, Arial, sans-serif; color: #333; font-size: 11px; line-height: 1.55; background: #fff; padding: 36px 44px; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { font-family: Inter, Arial, sans-serif; color: #333; font-size: 11px; line-height: 1.4; background: #fff; padding: 0 1.5rem; overflow: visible; }
 
   /* Header */
   .cv-header { text-align: center; margin-bottom: 14px; }
@@ -615,25 +625,30 @@ export function downloadATSReadableCVAsWord(cvText: string, fileNameBase: string
   .col-right { display: table-cell; width: 35%; vertical-align: top; padding-left: 10px; }
 
   /* Sections */
-  .cv-section { margin-bottom: 14px; }
-  .section-hr { border: none; border-top: 1.5px solid #333; margin: 0 0 4px; }
-  .section-heading { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #333; margin-bottom: 7px; }
+  .cv-section { margin: 0 0 14px; break-inside: avoid; page-break-inside: avoid; overflow: visible; }
+  .section-heading { border-bottom: 1.5px solid #333; padding: 0 0 4px; margin: 0 0 7px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #333; line-height: 1.4; break-after: avoid; page-break-after: avoid; }
 
   /* Entry rows */
-  .entry-row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 2px; }
+  .entry-row { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; margin-bottom: 2px; overflow: visible; white-space: normal; word-break: break-word; break-inside: avoid; page-break-inside: avoid; }
   .entry-row strong { color: #333; }
   .date { font-size: 9px; color: #6b7280; flex-shrink: 0; margin-left: 6px; font-weight: 400; }
 
   /* Bullet rows */
-  .bullet-row { display: flex; align-items: flex-start; gap: 5px; margin-bottom: 3px; line-height: 1.55; color: #333; }
-  .bullet-arrow { color: #1A73E8; font-size: 10px; flex-shrink: 0; padding-top: 1px; }
+  .bullet-list, .language-list { margin: 0 0 4px; padding-left: 1.1rem; overflow: visible; }
+  .bullet-row { display: list-item; margin-bottom: 3px; line-height: 1.4; color: #333; white-space: normal; overflow: visible; overflow-wrap: anywhere; word-break: break-word; break-inside: avoid; page-break-inside: avoid; }
+  .bullet-row::marker { color: #1A73E8; }
+  .plain-row { margin: 0 0 3px; line-height: 1.4; white-space: normal; overflow-wrap: anywhere; word-break: break-word; }
 
   /* Language pills */
-  .lang-row { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+  .lang-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 5px; break-inside: avoid; page-break-inside: avoid; }
   .lang-name { font-size: 10px; color: #333; width: 72px; flex-shrink: 0; }
   .pills { display: flex; gap: 3px; }
   .pill { display: inline-block; width: 18px; height: 7px; border-radius: 4px; background: #d1d5db; }
   .pill.pill-active { background: #1A73E8; }
+  @media print {
+    body { padding: 0 1.5rem; }
+    .cv-section, .entry-row, .bullet-row, .lang-row { break-inside: avoid; page-break-inside: avoid; }
+  }
 </style>
 </head>
 <body>
