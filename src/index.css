@@ -81,6 +81,47 @@
 }
 
 @layer utilities {
+  .pdf-export-mode,
+  .pdf-export-mode * {
+    box-sizing: border-box;
+    letter-spacing: normal !important;
+    word-spacing: normal !important;
+    text-align: left !important;
+  }
+
+  .pdf-export-mode {
+    width: 100% !important;
+    max-width: 794px;
+    min-width: 0;
+    padding: 0 24px !important;
+    overflow: visible !important;
+  }
+
+  .pdf-export-mode p,
+  .pdf-export-mode li,
+  .pdf-export-mode span,
+  .pdf-export-mode h1,
+  .pdf-export-mode h2,
+  .pdf-export-mode h3,
+  .pdf-export-mode h4,
+  .pdf-export-mode h5,
+  .pdf-export-mode h6 {
+    max-width: 100%;
+    min-width: 0;
+    overflow: visible;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    line-height: 1.4;
+  }
+
+  .pdf-export-mode .cv-section,
+  .pdf-export-mode .cv-entry,
+  .pdf-export-mode li {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
   .text-balance {
     text-wrap: balance;
   }
