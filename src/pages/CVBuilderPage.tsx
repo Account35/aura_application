@@ -581,21 +581,23 @@ function TwoColumnCVPreview({ cvText }: { cvText: string }) {
       <hr style={{ border: 'none', borderTop: '2px solid #333333', margin: '0 0 16px' }} />
 
       {/* Two-column body */}
-      <div style={{ width: '100%', minWidth: 0, overflow: 'hidden', display: 'block' }}>
-        <div className="cv-left-column" style={{ width: '58%', float: 'left', minWidth: 0, overflow: 'hidden', wordWrap: 'break-word' }}>
-          {left.map((section, i) => (
-            <SectionBlock key={i} section={section} isRight={false} />
-          ))}
-        </div>
-
-        <div style={{ width: 1, background: '#e5e7eb', height: '100%', display: 'inline-block', float: 'left', margin: '0 10px 0 0', verticalAlign: 'top' }} />
-
-        <div className="cv-right-column" style={{ width: '38%', float: 'right', minWidth: 0, overflow: 'hidden', wordWrap: 'break-word' }}>
-          {right.map((section, i) => (
-            <SectionBlock key={i} section={section} isRight={true} />
-          ))}
-        </div>
-      </div>
+      <table role="presentation" style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse' }}>
+        <tbody>
+          <tr>
+            <td className="left-col cv-left-column" style={{ width: '58%', verticalAlign: 'top', paddingRight: 10, boxSizing: 'border-box', overflow: 'hidden', wordWrap: 'break-word' }}>
+              {left.map((section, i) => (
+                <SectionBlock key={i} section={section} isRight={false} />
+              ))}
+            </td>
+            <td style={{ width: 1, background: '#e5e7eb', padding: 0, border: 'none' }} />
+            <td className="right-col cv-right-column" style={{ width: '38%', verticalAlign: 'top', paddingLeft: 10, boxSizing: 'border-box', overflow: 'hidden', wordWrap: 'break-word' }}>
+              {right.map((section, i) => (
+                <SectionBlock key={i} section={section} isRight={true} />
+              ))}
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   );
 }

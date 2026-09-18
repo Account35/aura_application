@@ -277,52 +277,98 @@ async function exportCvPreviewToPdf(fileNameBase: string): Promise<void> {
     return;
   }
 
-  const canvas = await html2canvas(preview, {
-    backgroundColor: '#ffffff',
-    scale: 2,
-    useCORS: true,
-    allowTaint: true,
-    logging: false,
-    width: EXPORT_PAGE_WIDTH_PX,
-    height: Math.max(preview.scrollHeight, 1100),
-    scrollX: 0,
-    scrollY: 0,
-    windowWidth: EXPORT_PAGE_WIDTH_PX,
-    windowHeight: 1123,
+  const clone = preview.cloneNode(true) as HTMLElement;
+  clone.style.position = 'fixed';
+  clone.style.left = '-9999px';
+  clone.style.top = '-9999px';
+  clone.style.width = `${EXPORT_PAGE_WIDTH_PX}px`;
+  clone.style.minWidth = `${EXPORT_PAGE_WIDTH_PX}px`;
+  clone.style.maxWidth = `${EXPORT_PAGE_WIDTH_PX}px`;
+  clone.style.boxSizing = 'border-box';
+  clone.style.background = '#ffffff';
+  clone.style.overflow = 'hidden';
+  clone.style.padding = '20px';
+  clone.style.margin = '0';
+  clone.style.zIndex = '0';
+
+  const leftCol = clone.querySelector('.left-col, .cv-left-column') as HTMLElement | null;
+  const rightCol = clone.querySelector('.right-col, .cv-right-column') as HTMLElement | null;
+  if (leftCol) {
+    leftCol.style.width = '460px !important';
+    leftCol.style.minWidth = '460px !important';
+    leftCol.style.maxWidth = '460px !important';
+    leftCol.style.float = 'left !important';
+    leftCol.style.display = 'block !important';
+    leftCol.style.boxSizing = 'border-box !important';
+    leftCol.style.overflow = 'hidden';
+    leftCol.style.wordWrap = 'break-word';
+    leftCol.style.wordBreak = 'break-word';
+  }
+  if (rightCol) {
+    rightCol.style.width = '290px !important';
+    rightCol.style.minWidth = '290px !important';
+    rightCol.style.maxWidth = '290px !important';
+    rightCol.style.float = 'right !important';
+    rightCol.style.display = 'block !important';
+    rightCol.style.boxSizing = 'border-box !important';
+    rightCol.style.overflow = 'hidden';
+    rightCol.style.wordWrap = 'break-word';
+    rightCol.style.wordBreak = 'break-word';
+  }
+
+  const allTextNodes = clone.querySelectorAll('p, li, span, div, h1, h2, h3, h4, h5, h6, section');
+  allTextNodes.forEach((node) => {
+    const target = node as HTMLElement;
+    target.style.overflow = 'hidden';
+    target.style.wordWrap = 'break-word';
+    target.style.wordBreak = 'break-word';
+    target.style.pageBreakInside = 'avoid';
+    target.style.breakInside = 'avoid';
   });
 
-  const doc = new jsPDF({ unit: 'pt', format: 'a4', compress: true });
-  const pageWidth = 794;
-  const pageHeight = 1123;
-  const imgWidth = pageWidth;
-  const imgHeight = (canvas.height * imgWidth) / canvas.width;
+  const offscreenRoot = document.createElement('div');
+  offscreenRoot.style.position = 'fixed';
+  offscreenRoot.style.left = '-9999px';
+  offscreenRoot.style.top = '-9999px';
+  offscreenRoot.style.width = `${EXPORT_PAGE_WIDTH_PX}px`;
+  offscreenRoot.style.height = '0';
+  offscreenRoot.style.overflow = 'hidden';
+  offscreenRoot.style.pointerEvents = 'none';
+  offscreenRoot.appendChild(clone);
+  document.body.appendChild(offscreenRoot);
 
-  const totalPages = Math.max(1, Math.ceil(imgHeight / pageHeight));
-  let cursorY = 0;
+  try {
+    const canvas = await html2canvas(clone, {
+      backgroundColor: '#ffffff',
+      scale: 2,
+      useCORS: true,
+      allowTaint: true,
+      logging: false,
+      width: EXPORT_PAGE_WIDTH_PX,
+      height: Math.max(clone.scrollHeight, 1100),
+      scrollX: 0,
+      scrollY: 0,
+      windowWidth: 1200,
+      windowHeight: 1200,
+    });
 
-  for (let page = 0; page < totalPages; page += 1) {
-    if (page > 0) doc.addPage();
-    const pageImgHeight = Math.min(imgHeight - page * pageHeight, pageHeight);
-    doc.addImage(
-      canvas.toDataURL('image/png'),
-      'PNG',
-      0,
-      0,
-      imgWidth,
-      pageImgHeight,
-      undefined,
-      'FAST'
-    );
-    cursorY = page * pageHeight;
-    if (page < totalPages - 1) {
-      doc.addPage();
+    const doc = new jsPDF({ unit: 'pt', format: 'a4', compress: true });
+    const pageWidth = 794;
+    const pageHeight = 1123;
+    const imgWidth = pageWidth;
+    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+    const totalPages = Math.max(1, Math.ceil(imgHeight / pageHeight));
+
+    for (let page = 0; page < totalPages; page += 1) {
+      if (page > 0) doc.addPage();
+      const pageImgHeight = Math.min(imgHeight - page * pageHeight, pageHeight);
+      doc.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, imgWidth, pageImgHeight, undefined, 'FAST');
     }
-  }
 
-  if (totalPages > 1) {
-    doc.deletePage(totalPages + 1);
+    doc.save(`${safeFilePart(fileNameBase)}.pdf`);
+  } finally {
+    offscreenRoot.remove();
   }
-  doc.save(`${safeFilePart(fileNameBase)}.pdf`);
 }
 
 function buildWordSectionChildren(section: ColSection, isRight = false): Paragraph[] {
