@@ -1034,8 +1034,13 @@ export default function CVBuilderPage() {
                 </CardHeader>
                 <CardContent>
                   <div
+                    id="cv-preview"
+                    className="pdf-export-mode"
                     style={{
                       background: '#fff',
+                      width: '794px',
+                      maxWidth: '100%',
+                      margin: '0 auto',
                       padding: '36px 40px',
                       fontFamily: 'Inter, Roboto, Arial, sans-serif',
                       borderRadius: 8,

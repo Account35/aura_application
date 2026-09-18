@@ -1,3 +1,5 @@
+import html2canvas from 'html2canvas';
+import { BorderStyle, Document, HeadingLevel, Packer, Paragraph, Table, TableCell, TableRow, TextRun, WidthType } from 'docx';
 import jsPDF from 'jspdf';
 
 // ---------------------------------------------------------------------------
@@ -263,6 +265,158 @@ function safeFilePart(value: string): string {
   return value.replace(/[^a-z0-9]/gi, '-').replace(/-+/g, '-').toLowerCase() || 'cv';
 }
 
+const EXPORT_PAGE_WIDTH_PX = 794;
+
+function getCvPreviewElement(): HTMLElement | null {
+  return document.getElementById('cv-preview');
+}
+
+async function exportCvPreviewToPdf(fileNameBase: string): Promise<void> {
+  const preview = getCvPreviewElement();
+  if (!preview) {
+    return;
+  }
+
+  const canvas = await html2canvas(preview, {
+    backgroundColor: '#ffffff',
+    scale: 2,
+    useCORS: true,
+    allowTaint: true,
+    logging: false,
+    width: EXPORT_PAGE_WIDTH_PX,
+    height: Math.max(preview.scrollHeight, 1100),
+    scrollX: 0,
+    scrollY: 0,
+    windowWidth: window.innerWidth,
+    windowHeight: window.innerHeight,
+  });
+
+  const doc = new jsPDF({ unit: 'pt', format: 'a4', compress: true });
+  const pageWidth = 794;
+  const pageHeight = 1123;
+  const imgWidth = pageWidth;
+  const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+  const totalPages = Math.max(1, Math.ceil(imgHeight / pageHeight));
+  let cursorY = 0;
+
+  for (let page = 0; page < totalPages; page += 1) {
+    if (page > 0) doc.addPage();
+    const pageImgHeight = Math.min(imgHeight - page * pageHeight, pageHeight);
+    doc.addImage(
+      canvas.toDataURL('image/png'),
+      'PNG',
+      0,
+      0,
+      imgWidth,
+      pageImgHeight,
+      undefined,
+      'FAST'
+    );
+    cursorY = page * pageHeight;
+    if (page < totalPages - 1) {
+      doc.addPage();
+    }
+  }
+
+  if (totalPages > 1) {
+    doc.deletePage(totalPages + 1);
+  }
+  doc.save(`${safeFilePart(fileNameBase)}.pdf`);
+}
+
+function buildWordSectionChildren(section: ColSection, isRight = false): Paragraph[] {
+  const paragraphs: Paragraph[] = [
+    new Paragraph({
+      text: section.heading.toUpperCase(),
+      heading: HeadingLevel.HEADING_3,
+      spacing: { after: 120 },
+      border: { bottom: { color: '000000', style: BorderStyle.SINGLE, size: 1 } },
+    }),
+  ];
+
+  for (const token of section.tokens) {
+    if (token.kind === 'entry') {
+      const content = token.right ? `${token.left} — ${token.right}` : token.left;
+      paragraphs.push(new Paragraph({
+        children: [
+          new TextRun({ text: content, bold: true, size: isRight ? 18 : 20 }),
+        ],
+        spacing: { after: 50 },
+      }));
+    } else if (token.kind === 'bullet') {
+      paragraphs.push(new Paragraph({
+        text: `• ${token.text}`,
+        spacing: { after: 50 },
+      }));
+    } else if (token.kind === 'plain' || token.kind === 'heading') {
+      paragraphs.push(new Paragraph({
+        text: token.kind === 'heading' ? token.text.toUpperCase() : token.text,
+        spacing: { after: 40 },
+        style: token.kind === 'heading' ? 'Heading4' : undefined,
+      }));
+    }
+  }
+
+  return paragraphs;
+}
+
+function buildWordDocumentDto(name: string, contact: string, subtitle: string, left: ColSection[], right: ColSection[]): Document {
+  const rows: TableRow[] = [];
+  const maxSections = Math.max(left.length, right.length);
+
+  for (let i = 0; i < maxSections; i += 1) {
+    const leftCellChildren = left[i] ? buildWordSectionChildren(left[i], false) : [new Paragraph('')];
+    const rightCellChildren = right[i] ? buildWordSectionChildren(right[i], true) : [new Paragraph('')];
+    rows.push(
+      new TableRow({
+        children: [
+          new TableCell({
+            children: leftCellChildren,
+            width: { size: 50, type: WidthType.PERCENTAGE },
+            borders: { top: { style: BorderStyle.NONE }, bottom: { style: BorderStyle.NONE }, left: { style: BorderStyle.NONE }, right: { style: BorderStyle.NONE }, insideHorizontal: { style: BorderStyle.NONE }, insideVertical: { style: BorderStyle.NONE } },
+          }),
+          new TableCell({
+            children: rightCellChildren,
+            width: { size: 50, type: WidthType.PERCENTAGE },
+            borders: { top: { style: BorderStyle.NONE }, bottom: { style: BorderStyle.NONE }, left: { style: BorderStyle.NONE }, right: { style: BorderStyle.NONE }, insideHorizontal: { style: BorderStyle.NONE }, insideVertical: { style: BorderStyle.NONE } },
+          }),
+        ],
+      })
+    );
+  }
+
+  const contactLine = contact ? contact.replace(/\s*[|•·]\s*/g, ' • ') : '';
+
+  return new Document({
+    sections: [{
+      properties: {
+        page: { margin: { top: 720, right: 720, bottom: 720, left: 720 } },
+      },
+      children: [
+        new Paragraph({
+          text: name.toUpperCase(),
+          alignment: 'center',
+          heading: HeadingLevel.TITLE,
+          spacing: { after: 160 },
+        }),
+        ...(subtitle ? [new Paragraph({ text: subtitle, alignment: 'center', spacing: { after: 160 } })] : []),
+        ...(contactLine ? [new Paragraph({ text: contactLine, alignment: 'center', spacing: { after: 200 } })] : []),
+        new Paragraph({
+          text: '',
+          spacing: { after: 80 },
+        }),
+        new Table({
+          rows,
+          width: { size: 100, type: WidthType.PERCENTAGE },
+          borders: { top: { style: BorderStyle.NONE }, bottom: { style: BorderStyle.NONE }, left: { style: BorderStyle.NONE }, right: { style: BorderStyle.NONE }, insideHorizontal: { style: BorderStyle.NONE }, insideVertical: { style: BorderStyle.NONE } },
+          layout: 'fixed',
+        }),
+      ],
+    }],
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Legacy single-column PDF (kept for backward-compat)
 // ---------------------------------------------------------------------------
@@ -342,6 +496,12 @@ export function downloadCVAsPDF(cvText: string, jobTitle: string): void {
 // ---------------------------------------------------------------------------
 
 export function downloadATSReadableCVAsPDF(cvText: string, fileNameBase: string): void {
+  const previewNode = getCvPreviewElement();
+  if (previewNode) {
+    void exportCvPreviewToPdf(fileNameBase);
+    return;
+  }
+
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
@@ -366,11 +526,9 @@ export function downloadATSReadableCVAsPDF(cvText: string, fileNameBase: string)
   const lhBody = 14;
   const lhSmall = 12.5;
 
-  // Track Y per column, per page
   let leftY = marginT;
   let rightY = marginT;
 
-  // ── Header (full width) ───────────────────────────────────────────────────
   const tokens = parseCVTokens(cvText);
   const { name, contact, left, right } = buildColumns(tokens);
   const contactParts = contact.split(/\s*[|•·]\s*/).filter(Boolean);
@@ -378,7 +536,6 @@ export function downloadATSReadableCVAsPDF(cvText: string, fileNameBase: string)
 
   let hY = marginT;
 
-  // Name
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(20);
   doc.setTextColor(...DARK);
@@ -393,7 +550,6 @@ export function downloadATSReadableCVAsPDF(cvText: string, fileNameBase: string)
     hY += 13;
   }
 
-  // Contact row
   if (contactParts.length) {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
@@ -403,7 +559,6 @@ export function downloadATSReadableCVAsPDF(cvText: string, fileNameBase: string)
     hY += 12;
   }
 
-  // Full-width hr
   doc.setDrawColor(...DARK);
   doc.setLineWidth(1);
   doc.line(marginL, hY, pageW - marginR, hY);
@@ -412,11 +567,8 @@ export function downloadATSReadableCVAsPDF(cvText: string, fileNameBase: string)
   leftY = hY;
   rightY = hY;
 
-  // ── Column rendering helpers ──────────────────────────────────────────────
-
   const ensureSpace = (colX: number, neededH: number, colYRef: { v: number }) => {
     if (colYRef.v + neededH <= pageH - marginB) return;
-    // Add new page and reset both columns
     doc.addPage();
     leftY = marginT;
     rightY = marginT;
@@ -432,7 +584,6 @@ export function downloadATSReadableCVAsPDF(cvText: string, fileNameBase: string)
     const isLanguages = /LANGUAGE/i.test(section.heading);
     const isRight = colX === rightX;
 
-    // Section heading
     ensureSpace(colX, 22, colYRef);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(isRight ? 8.5 : 9);
@@ -444,13 +595,11 @@ export function downloadATSReadableCVAsPDF(cvText: string, fileNameBase: string)
     doc.line(colX, colYRef.v, colX + colWidth, colYRef.v);
     colYRef.v += isRight ? 9 : 10;
 
-    // Tokens
     for (const token of section.tokens) {
       if (token.kind === 'entry') {
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(isRight ? 8.5 : 9.5);
         doc.setTextColor(...DARK);
-        // Left portion
         const leftMaxW = token.right ? Math.max(40, colWidth * 0.65) : colWidth;
         const leftWrapped = doc.splitTextToSize(token.left, leftMaxW);
         ensureSpace(colX, Math.max(lhBody, leftWrapped.length * lhSmall), colYRef);
@@ -460,7 +609,6 @@ export function downloadATSReadableCVAsPDF(cvText: string, fileNameBase: string)
           doc.text(wrappedLine, colX, colYRef.v);
           colYRef.v += lhSmall;
         }
-        // Right date
         if (token.right) {
           doc.setFont('helvetica', 'normal');
           doc.setFontSize(8);
@@ -474,7 +622,6 @@ export function downloadATSReadableCVAsPDF(cvText: string, fileNameBase: string)
         doc.setTextColor(...DARK);
         const wrapped = doc.splitTextToSize(token.text, bulletW);
         ensureSpace(colX, Math.max(lhSmall, wrapped.length * lhSmall), colYRef);
-        // Draw a native shape so exported text contains no bullet glyph.
         doc.setTextColor(...BLUE);
         doc.circle(colX + 2, colYRef.v - 3, 1.4, 'F');
         doc.setTextColor(...DARK);
@@ -488,12 +635,10 @@ export function downloadATSReadableCVAsPDF(cvText: string, fileNameBase: string)
           const parsed = parseLanguageLine(token.text);
           if (parsed) {
             ensureSpace(colX, 14, colYRef);
-            // Language name
             doc.setFont('helvetica', 'normal');
             doc.setFontSize(8.5);
             doc.setTextColor(...DARK);
             doc.text(parsed.lang, colX, colYRef.v);
-            // Pill bars
             const barStartX = colX + 62;
             const barW = 16;
             const barH = 5;
@@ -523,7 +668,6 @@ export function downloadATSReadableCVAsPDF(cvText: string, fileNameBase: string)
           colYRef.v += lhSmall;
         }
       } else if (token.kind === 'heading') {
-        // Sub-heading within a section
         ensureSpace(colX, lhSmall, colYRef);
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(isRight ? 7.5 : 8.5);
@@ -533,16 +677,14 @@ export function downloadATSReadableCVAsPDF(cvText: string, fileNameBase: string)
       }
     }
 
-    colYRef.v += 8; // gap after section
+    colYRef.v += 8;
   };
 
-  // ── Render left and right columns ─────────────────────────────────────────
   const leftRef = { v: leftY };
   const rightRef = { v: rightY };
 
   for (const section of left) {
     renderSection(section, leftX, leftW, leftRef);
-    // Sync leftY global
     leftY = leftRef.v;
   }
   for (const section of right) {
@@ -550,18 +692,10 @@ export function downloadATSReadableCVAsPDF(cvText: string, fileNameBase: string)
     rightY = rightRef.v;
   }
 
-  // Draw vertical separator between columns (on first page only approximation)
   const separatorH = Math.max(leftY, rightY) - hY;
   doc.setDrawColor(220, 220, 220);
   doc.setLineWidth(0.5);
   doc.line(marginL + leftW + colGap / 2, hY, marginL + leftW + colGap / 2, hY + separatorH);
-
-  // Footer
-  const totalPages = (doc.internal as any).getNumberOfPages?.() ?? 1;
-  for (let p = 1; p <= totalPages; p++) {
-    doc.setPage(p);
-    // Keep exported documents free of recurring product branding.
-  }
 
   doc.save(`${safeFilePart(fileNameBase)}.pdf`);
 }
@@ -582,154 +716,18 @@ function escapeHtml(value: string): string {
 // Two-column Word (HTML) download
 // ---------------------------------------------------------------------------
 
-export function downloadATSReadableCVAsWord(cvText: string, fileNameBase: string): void {
+export async function downloadATSReadableCVAsWord(cvText: string, fileNameBase: string): Promise<void> {
   const tokens = parseCVTokens(cvText);
   const { name, contact, left, right } = buildColumns(tokens);
   const contactParts = contact.split(/\s*[|•·]\s*/).filter(Boolean);
   const subtitle = contactParts.shift() || '';
 
-  function renderColSections(sections: ColSection[], isRight: boolean): string {
-    const fs = isRight ? '10px' : '11px';
-    const headFs = isRight ? '9px' : '10px';
-    const parts: string[] = [];
-
-    for (const section of sections) {
-      const isLang = /LANGUAGE/i.test(section.heading);
-      parts.push(`<section class="cv-section">`);
-      parts.push(`<h2 class="section-heading" style="font-size:${headFs}">${escapeHtml(section.heading)}</h2>`);
-
-      if (isLang) {
-        parts.push('<ul class="language-list">');
-        for (const t of section.tokens) {
-          if (t.kind !== 'plain' && t.kind !== 'bullet') continue;
-          const text = (t as any).text as string;
-          const parsed = parseLanguageLine(text);
-          if (parsed) {
-            const bars = [1,2,3,4,5].map(n =>
-              `<span class="pill${n <= parsed.level ? ' pill-active' : ''}"></span>`
-            ).join('');
-            parts.push(`<li class="lang-row"><span class="lang-name">${escapeHtml(parsed.lang)}</span><span class="pills">${bars}</span></li>`);
-          } else {
-            parts.push(`<li class="plain-row" style="font-size:${fs}">${escapeHtml(text)}</li>`);
-          }
-        }
-        parts.push('</ul>');
-      } else {
-        let bulletsOpen = false;
-        for (const t of section.tokens) {
-          if (t.kind !== 'bullet' && bulletsOpen) {
-            parts.push('</ul>');
-            bulletsOpen = false;
-          }
-          if (t.kind === 'entry') {
-            parts.push(`<table class="entry-row" role="presentation"><tr><td><strong style="font-size:${fs}">${escapeHtml(t.left)}</strong></td>${t.right ? `<td class="date">${escapeHtml(t.right)}</td>` : '<td></td>'}</tr></table>`);
-          } else if (t.kind === 'bullet') {
-            if (!bulletsOpen) {
-              parts.push('<ul class="bullet-list">');
-              bulletsOpen = true;
-            }
-            parts.push(`<li class="List Bullet bullet-row" style="font-size:${fs};mso-style-name:'List Bullet';mso-list:l0 level1 lfo1">${escapeHtml(t.text)}</li>`);
-          } else if (t.kind === 'plain') {
-            parts.push(`<p style="font-size:${fs};margin:0 0 3px;color:#555;line-height:1.55">${escapeHtml(t.text)}</p>`);
-          } else if (t.kind === 'heading') {
-            parts.push(`<h3 class="entry-subheading" style="font-size:${headFs}">${escapeHtml(t.text)}</h3>`);
-          }
-        }
-        if (bulletsOpen) parts.push('</ul>');
-      }
-
-      parts.push(`</section>`);
-    }
-
-    return parts.join('\n');
-  }
-
-  // Contact parts
-  const contactHtml = contactParts
-    .map(p => `<span class="contact-item">${escapeHtml(p)}</span>`)
-    .join('<span class="contact-sep">·</span>');
-
-  const leftHtml = renderColSections(left, false);
-  const rightHtml = renderColSections(right, true);
-
-  const html = `<!doctype html>
-<html>
-<head>
-<meta charset="utf-8">
-<style>
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
-  * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; }
-  body { font-family: Inter, Arial, sans-serif; color: #333; font-size: 11px; line-height: 1.4; background: #fff; padding: 0 1.5rem; overflow: visible; }
-
-  /* Header */
-  .cv-header { text-align: center; margin-bottom: 14px; }
-  .cv-name { font-size: 22px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: #1a1a1a; margin-bottom: 4px; }
-  .cv-subtitle { color: #1A73E8; font-size: 11px; margin-bottom: 5px; }
-  .cv-contact { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 12px; font-size: 10px; color: #555; margin-top: 6px; }
-  .contact-item { display: inline-flex; align-items: center; gap: 3px; }
-  .contact-sep { color: #1A73E8; margin: 0 4px; font-weight: 700; }
-
-  /* Full-width header divider */
-  .header-hr { border: none; border-top: 1.5px solid #333; margin: 10px 0 14px; }
-
-  /* Two-column grid */
-  .cv-body { width: 100%; table-layout: fixed; border-collapse: collapse; }
-  .col-left { width: 64%; vertical-align: top; padding-right: 10px; }
-  .col-divider { width: 1px; vertical-align: top; background: #e5e7eb; }
-  .col-right { width: 35%; vertical-align: top; padding-left: 10px; }
-
-  /* Sections */
-  .cv-section { margin: 0 0 14px; break-inside: avoid; page-break-inside: avoid; overflow: visible; }
-  .section-heading { border-bottom: 1.5px solid #333; padding: 0 0 4px; margin: 0 0 7px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #333; line-height: 1.4; break-after: avoid; page-break-after: avoid; }
-
-  /* Entry rows */
-  .entry-row { width: 100%; border-collapse: collapse; margin-bottom: 2px; overflow: visible; white-space: normal; word-break: break-word; break-inside: avoid; page-break-inside: avoid; }
-  .entry-row td:first-child { width: 100%; color: #333; }
-  .entry-row strong { color: #333; }
-  .date { width: 1%; white-space: nowrap; text-align: right; font-size: 9px; color: #6b7280; font-weight: 400; padding-left: 6px; }
-
-  /* Bullet rows */
-  .bullet-list, .language-list { margin: 0 0 4px; padding-left: 1.1rem; overflow: visible; }
-  .bullet-row { display: list-item; margin-bottom: 3px; line-height: 1.4; color: #333; white-space: normal; overflow: visible; overflow-wrap: anywhere; word-break: break-word; break-inside: avoid; page-break-inside: avoid; }
-  .bullet-row::marker { color: #1A73E8; }
-  .entry-subheading { font-weight: 700; color: #333; text-transform: uppercase; margin: 6px 0 2px; letter-spacing: normal; line-height: 1.4; break-inside: avoid; page-break-inside: avoid; }
-  .plain-row { margin: 0 0 3px; line-height: 1.4; white-space: normal; overflow-wrap: anywhere; word-break: break-word; }
-
-  /* Language pills */
-  .lang-row { margin-bottom: 5px; break-inside: avoid; page-break-inside: avoid; }
-  .lang-name { font-size: 10px; color: #333; width: 72px; flex-shrink: 0; }
-  .pills { display: flex; gap: 3px; }
-  .pill { display: inline-block; width: 18px; height: 7px; border-radius: 4px; background: #d1d5db; }
-  .pill.pill-active { background: #1A73E8; }
-  @media print {
-    body { padding: 0 1.5rem; }
-    .cv-section, .entry-row, .bullet-row, .lang-row { break-inside: avoid; page-break-inside: avoid; }
-  }
-</style>
-</head>
-<body>
-  <div class="cv-header">
-    <div class="cv-name">${escapeHtml(name)}</div>
-    ${subtitle ? `<div class="cv-subtitle">${escapeHtml(subtitle)}</div>` : ''}
-    <div class="cv-contact">${contactHtml}</div>
-  </div>
-  <hr class="header-hr" />
-  <table class="cv-body" role="presentation">
-    <tr>
-      <td class="col-left">${leftHtml}</td>
-      <td class="col-divider">&nbsp;</td>
-      <td class="col-right">${rightHtml}</td>
-    </tr>
-  </table>
-</body>
-</html>`;
-
-  const blob = new Blob([html], { type: 'application/msword;charset=utf-8' });
+  const doc = buildWordDocumentDto(name || 'YOUR NAME', contact, subtitle, left, right);
+  const blob = await Packer.toBlob(doc);
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = `${safeFilePart(fileNameBase)}.doc`;
+  link.download = `${safeFilePart(fileNameBase)}.docx`;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);

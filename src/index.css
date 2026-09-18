@@ -81,45 +81,96 @@
 }
 
 @layer utilities {
-  .pdf-export-mode,
-  .pdf-export-mode * {
+  #cv-preview,
+  #cv-preview *,
+  #cv-preview *::before,
+  #cv-preview *::after {
     box-sizing: border-box;
     letter-spacing: normal !important;
     word-spacing: normal !important;
     text-align: left !important;
   }
 
-  .pdf-export-mode {
-    width: 100% !important;
-    max-width: 794px;
+  #cv-preview {
+    width: 794px !important;
+    max-width: 100%;
     min-width: 0;
-    padding: 0 24px !important;
+    margin: 0 auto;
+    padding: 36px 40px !important;
     overflow: visible !important;
+    line-height: 1.45;
+    color: #1f2937;
+    font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
+    page-break-inside: auto;
+    break-inside: auto;
   }
 
-  .pdf-export-mode p,
-  .pdf-export-mode li,
-  .pdf-export-mode span,
-  .pdf-export-mode h1,
-  .pdf-export-mode h2,
-  .pdf-export-mode h3,
-  .pdf-export-mode h4,
-  .pdf-export-mode h5,
-  .pdf-export-mode h6 {
+  #cv-preview p,
+  #cv-preview li,
+  #cv-preview span,
+  #cv-preview h1,
+  #cv-preview h2,
+  #cv-preview h3,
+  #cv-preview h4,
+  #cv-preview h5,
+  #cv-preview h6,
+  #cv-preview div {
     max-width: 100%;
     min-width: 0;
     overflow: visible;
     white-space: normal;
     overflow-wrap: anywhere;
     word-break: break-word;
-    line-height: 1.4;
+    line-height: 1.45;
   }
 
-  .pdf-export-mode .cv-section,
-  .pdf-export-mode .cv-entry,
-  .pdf-export-mode li {
+  #cv-preview section,
+  #cv-preview .cv-section,
+  #cv-preview .cv-entry,
+  #cv-preview li,
+  #cv-preview ul,
+  #cv-preview p {
     break-inside: avoid;
     page-break-inside: avoid;
+  }
+
+  #cv-preview .cv-section {
+    margin-bottom: 16px;
+  }
+
+  @media print {
+    @page {
+      size: A4;
+      margin: 18mm 14mm;
+    }
+
+    body {
+      margin: 0;
+      background: #fff;
+      color: #1f2937;
+    }
+
+    #cv-preview {
+      width: 794px !important;
+      max-width: 794px !important;
+      min-height: 1123px;
+      margin: 0 auto;
+      padding: 18px 22px !important;
+      box-shadow: none !important;
+      border-radius: 0 !important;
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+
+    #cv-preview section,
+    #cv-preview .cv-section,
+    #cv-preview .cv-entry,
+    #cv-preview li,
+    #cv-preview ul,
+    #cv-preview p {
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
   }
 
   .text-balance {

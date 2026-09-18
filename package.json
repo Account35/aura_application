@@ -44,8 +44,10 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "date-fns": "^3.6.0",
+    "docx": "^9.7.1",
     "embla-carousel-react": "^8.6.0",
     "eventsource-parser": "^3.0.6",
+    "html2canvas": "^1.4.1",
     "input-otp": "^1.4.2",
     "jspdf": "^4.2.1",
     "ky": "^1.13.0",
@@ -90,5 +92,9 @@
     "typescript": "~5.9.3",
     "vite": "npm:rolldown-vite@latest",
     "vite-plugin-svgr": "^4.5.0"
+  },
+  "allowScripts": {
+    "html2canvas@1.4.1": true,
+    "docx@9.7.1": true
   }
 }
