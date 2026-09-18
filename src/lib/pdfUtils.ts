@@ -287,8 +287,8 @@ async function exportCvPreviewToPdf(fileNameBase: string): Promise<void> {
     height: Math.max(preview.scrollHeight, 1100),
     scrollX: 0,
     scrollY: 0,
-    windowWidth: window.innerWidth,
-    windowHeight: window.innerHeight,
+    windowWidth: EXPORT_PAGE_WIDTH_PX,
+    windowHeight: 1123,
   });
 
   const doc = new jsPDF({ unit: 'pt', format: 'a4', compress: true });

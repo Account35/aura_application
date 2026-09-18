@@ -93,16 +93,18 @@
 
   #cv-preview {
     width: 794px !important;
-    max-width: 100%;
+    max-width: 794px !important;
     min-width: 0;
     margin: 0 auto;
-    padding: 36px 40px !important;
-    overflow: visible !important;
+    padding: 20px !important;
+    overflow: hidden !important;
     line-height: 1.45;
     color: #1f2937;
     font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
     page-break-inside: auto;
     break-inside: auto;
+    box-sizing: border-box;
+    word-wrap: break-word;
   }
 
   #cv-preview p,
@@ -114,13 +116,17 @@
   #cv-preview h4,
   #cv-preview h5,
   #cv-preview h6,
-  #cv-preview div {
+  #cv-preview div,
+  #cv-preview section,
+  #cv-preview .cv-section,
+  #cv-preview .cv-entry {
     max-width: 100%;
     min-width: 0;
-    overflow: visible;
+    overflow: hidden;
     white-space: normal;
     overflow-wrap: anywhere;
     word-break: break-word;
+    word-wrap: break-word;
     line-height: 1.45;
   }
 
@@ -129,13 +135,25 @@
   #cv-preview .cv-entry,
   #cv-preview li,
   #cv-preview ul,
-  #cv-preview p {
+  #cv-preview p,
+  #cv-preview h4,
+  #cv-preview h5 {
     break-inside: avoid;
     page-break-inside: avoid;
   }
 
   #cv-preview .cv-section {
     margin-bottom: 16px;
+  }
+
+  #cv-preview .cv-left-column {
+    width: 58% !important;
+    float: left;
+  }
+
+  #cv-preview .cv-right-column {
+    width: 38% !important;
+    float: right;
   }
 
   @media print {

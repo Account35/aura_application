@@ -468,8 +468,8 @@ function SectionBlock({ section, isRight = false }: { section: CVSection; isRigh
   const headFs = isRight ? 10 : 11;
 
   return (
-    <section style={{ marginBottom: 16, boxSizing: 'border-box', overflow: 'visible', breakInside: 'avoid', pageBreakInside: 'avoid' }}>
-      <h2 style={{ fontSize: headFs, fontWeight: 700, color: '#333333', textTransform: 'uppercase', letterSpacing: '0.05em', lineHeight: 1.4, borderBottom: '1.5px solid #333333', paddingBottom: 4, margin: '0 0 8px', breakAfter: 'avoid', pageBreakAfter: 'avoid' }}>
+    <section className="cv-section" style={{ marginBottom: 16, boxSizing: 'border-box', overflow: 'visible', breakInside: 'avoid', pageBreakInside: 'avoid' }}>
+      <h2 style={{ fontSize: headFs, fontWeight: 700, color: '#333333', textTransform: 'uppercase', letterSpacing: '0.05em', lineHeight: 1.4, borderBottom: '1.5px solid #333333', paddingBottom: 4, margin: '0 0 8px', breakAfter: 'avoid', pageBreakAfter: 'avoid', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
         {section.heading}
       </h2>
 
@@ -506,11 +506,11 @@ function SectionBlock({ section, isRight = false }: { section: CVSection; isRigh
           {section.tokens.map((token, i) => {
             if (token.kind === 'entry') {
               return (
-                <div key={i} style={{ marginBottom: 2 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                    <span style={{ fontSize: fs, fontWeight: 700, color: '#333333' }}>{token.left}</span>
+                <div key={i} className="cv-entry" style={{ marginBottom: 2, overflow: 'hidden', wordWrap: 'break-word', breakInside: 'avoid', pageBreakInside: 'avoid' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8, overflow: 'hidden' }}>
+                    <span style={{ fontSize: fs, fontWeight: 700, color: '#333333', wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{token.left}</span>
                     {token.right && (
-                      <span style={{ fontSize: 10, color: '#6b7280', flexShrink: 0, marginLeft: 6 }}>{token.right}</span>
+                      <span style={{ fontSize: 10, color: '#6b7280', flexShrink: 0, marginLeft: 6, whiteSpace: 'nowrap' }}>{token.right}</span>
                     )}
                   </div>
                 </div>
@@ -551,7 +551,7 @@ function TwoColumnCVPreview({ cvText }: { cvText: string }) {
   const contactParts = contact ? parseContactParts(contact) : [];
 
   return (
-    <div style={{ boxSizing: 'border-box', width: '100%', minWidth: 0, padding: '0 1.5rem', fontFamily: 'Inter, Roboto, Arial, sans-serif', color: '#333333', background: '#fff', lineHeight: 1.4, overflow: 'visible' }}>
+    <div className="cv-export-shell" style={{ boxSizing: 'border-box', width: '794px', maxWidth: '794px', minWidth: 0, margin: '0 auto', padding: '20px', fontFamily: 'Inter, Roboto, Arial, sans-serif', color: '#333333', background: '#fff', lineHeight: 1.4, overflow: 'hidden', wordWrap: 'break-word' }}>
       {/* Header */}
       <div style={{ marginBottom: 16 }}>
         <p style={{ fontSize: 22, fontWeight: 800, textAlign: 'center', color: '#1a1a1a', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 4px' }}>
@@ -581,19 +581,16 @@ function TwoColumnCVPreview({ cvText }: { cvText: string }) {
       <hr style={{ border: 'none', borderTop: '2px solid #333333', margin: '0 0 16px' }} />
 
       {/* Two-column body */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20, alignItems: 'flex-start', width: '100%', minWidth: 0, overflow: 'visible' }}>
-        {/* Left column ~65% */}
-        <div style={{ flex: '1 1 calc(63% - 10px)', minWidth: 0, maxWidth: '100%', overflow: 'visible' }}>
+      <div style={{ width: '100%', minWidth: 0, overflow: 'hidden', display: 'block' }}>
+        <div className="cv-left-column" style={{ width: '58%', float: 'left', minWidth: 0, overflow: 'hidden', wordWrap: 'break-word' }}>
           {left.map((section, i) => (
             <SectionBlock key={i} section={section} isRight={false} />
           ))}
         </div>
 
-        {/* Vertical separator */}
-        <div style={{ width: 1, background: '#e5e7eb', alignSelf: 'stretch', flex: '0 0 1px' }} />
+        <div style={{ width: 1, background: '#e5e7eb', height: '100%', display: 'inline-block', float: 'left', margin: '0 10px 0 0', verticalAlign: 'top' }} />
 
-        {/* Right column ~35% */}
-        <div style={{ flex: '1 1 calc(37% - 10px)', minWidth: 0, maxWidth: '100%', overflow: 'visible' }}>
+        <div className="cv-right-column" style={{ width: '38%', float: 'right', minWidth: 0, overflow: 'hidden', wordWrap: 'break-word' }}>
           {right.map((section, i) => (
             <SectionBlock key={i} section={section} isRight={true} />
           ))}
