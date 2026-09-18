@@ -17,7 +17,7 @@ import type {
   CVWorkExperience,
 } from '@/types/types';
 import { hasPersonalisedCVAccess } from '@/lib/planUtils';
-import { downloadATSReadableCVAsPDF, downloadATSReadableCVAsWord } from '@/lib/pdfUtils';
+import { downloadATSReadableCVAsWord } from '@/lib/pdfUtils';
 import { FileEdit, Loader2, Lock, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -551,7 +551,7 @@ function TwoColumnCVPreview({ cvText }: { cvText: string }) {
   const contactParts = contact ? parseContactParts(contact) : [];
 
   return (
-    <div className="cv-export-shell" style={{ boxSizing: 'border-box', width: '794px', maxWidth: '794px', minWidth: 0, margin: '0 auto', padding: '20px', fontFamily: 'Inter, Roboto, Arial, sans-serif', color: '#333333', background: '#fff', lineHeight: 1.4, overflow: 'hidden', wordWrap: 'break-word' }}>
+    <div className="cv-preview-document" style={{ boxSizing: 'border-box', minWidth: 0, margin: '0 auto', padding: '20px', fontFamily: 'Inter, Roboto, Arial, sans-serif', color: '#333333', background: '#fff', lineHeight: 1.4, overflow: 'visible', wordWrap: 'break-word' }}>
       {/* Header */}
       <div style={{ marginBottom: 16 }}>
         <p style={{ fontSize: 22, fontWeight: 800, textAlign: 'center', color: '#1a1a1a', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 4px' }}>
@@ -581,23 +581,18 @@ function TwoColumnCVPreview({ cvText }: { cvText: string }) {
       <hr style={{ border: 'none', borderTop: '2px solid #333333', margin: '0 0 16px' }} />
 
       {/* Two-column body */}
-      <table role="presentation" style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse' }}>
-        <tbody>
-          <tr>
-            <td className="left-col cv-left-column" style={{ width: '58%', verticalAlign: 'top', paddingRight: 10, boxSizing: 'border-box', overflow: 'hidden', wordWrap: 'break-word' }}>
-              {left.map((section, i) => (
-                <SectionBlock key={i} section={section} isRight={false} />
-              ))}
-            </td>
-            <td style={{ width: 1, background: '#e5e7eb', padding: 0, border: 'none' }} />
-            <td className="right-col cv-right-column" style={{ width: '38%', verticalAlign: 'top', paddingLeft: 10, boxSizing: 'border-box', overflow: 'hidden', wordWrap: 'break-word' }}>
-              {right.map((section, i) => (
-                <SectionBlock key={i} section={section} isRight={true} />
-              ))}
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <div className="cv-preview-container">
+        <div className="cv-left-column">
+          {left.map((section, i) => (
+            <SectionBlock key={i} section={section} isRight={false} />
+          ))}
+        </div>
+        <div className="cv-right-column">
+          {right.map((section, i) => (
+            <SectionBlock key={i} section={section} isRight={true} />
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
@@ -1022,8 +1017,8 @@ export default function CVBuilderPage() {
                       <CardDescription>Two-column professional layout, ready for PDF or Word export.</CardDescription>
                     </div>
                     <div className="flex flex-col gap-2 sm:flex-row">
-                      <Button variant="outline" onClick={() => downloadATSReadableCVAsPDF(generatedCV, fileNameBase)}>
-                        Download as PDF
+                      <Button variant="outline" onClick={() => window.print()}>
+                        Print / Save as PDF
                       </Button>
                       <Button variant="outline" onClick={() => downloadATSReadableCVAsWord(generatedCV, fileNameBase)}>
                         Download as Word
@@ -1037,8 +1032,6 @@ export default function CVBuilderPage() {
                     className="pdf-export-mode"
                     style={{
                       background: '#fff',
-                      width: '794px',
-                      maxWidth: '100%',
                       margin: '0 auto',
                       padding: '36px 40px',
                       fontFamily: 'Inter, Roboto, Arial, sans-serif',

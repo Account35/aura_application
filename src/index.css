@@ -88,22 +88,30 @@
     box-sizing: border-box;
     letter-spacing: normal !important;
     word-spacing: normal !important;
-    text-align: left !important;
   }
 
   #cv-preview {
-    width: 794px !important;
-    max-width: 794px !important;
-    min-width: 0;
+    width: 100%;
+    max-width: 100%;
     margin: 0 auto;
-    padding: 20px !important;
-    overflow: hidden !important;
+    padding: 20px;
+    overflow: visible;
     line-height: 1.45;
     color: #1f2937;
     font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
-    page-break-inside: auto;
-    break-inside: auto;
+  }
+
+  .cv-preview-container {
+    display: grid;
+    grid-template-columns: 1.2fr 0.8fr;
+    gap: 24px;
+    width: 100%;
     box-sizing: border-box;
+    background: #ffffff;
+    overflow: visible;
+    padding: 20px;
+    color: #333333;
+    line-height: 1.4;
     word-wrap: break-word;
   }
 
@@ -122,7 +130,6 @@
   #cv-preview .cv-entry {
     max-width: 100%;
     min-width: 0;
-    overflow: hidden;
     white-space: normal;
     overflow-wrap: anywhere;
     word-break: break-word;
@@ -146,20 +153,19 @@
     margin-bottom: 16px;
   }
 
-  #cv-preview .cv-left-column {
-    width: 58% !important;
-    float: left;
-  }
-
-  #cv-preview .cv-right-column {
-    width: 38% !important;
-    float: right;
-  }
-
   @media print {
     @page {
-      size: A4;
-      margin: 18mm 14mm;
+      size: A4 portrait;
+      margin: 10mm;
+    }
+
+    body * {
+      visibility: hidden;
+    }
+
+    #cv-preview,
+    #cv-preview * {
+      visibility: visible;
     }
 
     body {
@@ -171,11 +177,22 @@
     #cv-preview {
       width: 794px !important;
       max-width: 794px !important;
-      min-height: 1123px;
-      margin: 0 auto;
-      padding: 18px 22px !important;
+      position: absolute;
+      left: 0;
+      top: 0;
+      margin: 0 !important;
+      padding: 0 !important;
       box-shadow: none !important;
       border-radius: 0 !important;
+    }
+
+    .cv-preview-container {
+      width: 100%;
+      min-height: 1123px;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 24px;
+      padding: 20px;
+      overflow: visible;
       break-inside: avoid;
       page-break-inside: avoid;
     }
@@ -183,6 +200,8 @@
     #cv-preview section,
     #cv-preview .cv-section,
     #cv-preview .cv-entry,
+    #cv-preview .experience-item,
+    #cv-preview .education-item,
     #cv-preview li,
     #cv-preview ul,
     #cv-preview p {
