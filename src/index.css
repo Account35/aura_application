@@ -115,6 +115,11 @@
     word-wrap: break-word;
   }
 
+  .cv-preview-container,
+  .cv-preview-container * {
+    box-sizing: border-box;
+  }
+
   #cv-preview p,
   #cv-preview li,
   #cv-preview span,
@@ -153,6 +158,19 @@
     margin-bottom: 16px;
   }
 
+  #cv-preview .cv-section-block,
+  #cv-preview .experience-item,
+  #cv-preview .education-item {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  #cv-preview p,
+  #cv-preview li {
+    orphans: 3;
+    widows: 3;
+  }
+
   @media print {
     @page {
       size: A4 portrait;
@@ -187,7 +205,9 @@
     }
 
     .cv-preview-container {
-      display: block !important;
+      display: flex !important;
+      align-items: flex-start;
+      gap: 6mm;
       width: 100% !important;
       min-height: 0;
       padding: 0;
@@ -199,13 +219,21 @@
     .cv-left-column,
     .cv-right-column {
       display: block !important;
-      width: 100% !important;
       min-width: 0 !important;
       float: none !important;
     }
 
+    .cv-left-column {
+      flex: 0 0 calc(60% - 3mm);
+    }
+
+    .cv-right-column {
+      flex: 0 0 calc(40% - 3mm);
+    }
+
     #cv-preview section,
     #cv-preview .cv-section,
+    #cv-preview .cv-section-block,
     #cv-preview .cv-entry,
     #cv-preview .experience-item,
     #cv-preview .education-item,

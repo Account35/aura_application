@@ -271,6 +271,29 @@ function getCvPreviewElement(): HTMLElement | null {
   return document.getElementById('cv-preview');
 }
 
+function getSafePageBreaks(root: HTMLElement, pageHeight: number): number[] {
+  const rootTop = root.getBoundingClientRect().top;
+  const contentHeight = root.scrollHeight;
+  const candidates = [...root.querySelectorAll('.cv-section-block, .cv-entry, .experience-item, .education-item, li, p')]
+    .map((node) => Math.ceil((node as HTMLElement).getBoundingClientRect().bottom - rootTop))
+    .filter((bottom) => bottom > 0 && bottom < contentHeight)
+    .sort((a, b) => a - b);
+  const breaks = [0];
+
+  while (breaks[breaks.length - 1] < contentHeight) {
+    const start = breaks[breaks.length - 1];
+    const limit = Math.min(start + pageHeight, contentHeight);
+    const safeBreak = candidates.filter((bottom) => bottom > start + 32 && bottom <= limit).pop();
+    const next = safeBreak ?? limit;
+    if (next >= contentHeight) break;
+    // A block taller than a page has no safe boundary; make forward progress and
+    // let the next page continue it rather than clipping the entire document.
+    breaks.push(next > start ? next : limit);
+  }
+
+  return [...breaks, contentHeight];
+}
+
 async function exportCvPreviewToPdf(fileNameBase: string): Promise<void> {
   const preview = getCvPreviewElement();
   if (!preview) {
@@ -352,14 +375,27 @@ async function exportCvPreviewToPdf(fileNameBase: string): Promise<void> {
     const doc = new jsPDF({ unit: 'pt', format: 'a4', compress: true });
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
-    const imgHeight = (canvas.height * pageWidth) / canvas.width;
-    const totalPages = Math.max(1, Math.ceil(imgHeight / pageHeight));
+    const margin = 28.35; // 10mm in PDF points
+    const contentWidth = pageWidth - margin * 2;
+    const contentHeight = pageHeight - margin * 2;
+    const pageHeightCss = (contentHeight * clone.scrollWidth) / contentWidth;
+    const breaks = getSafePageBreaks(clone, pageHeightCss);
+    const renderScale = canvas.height / Math.max(clone.scrollHeight, 1);
 
-    for (let page = 0; page < totalPages; page += 1) {
+    for (let page = 0; page < breaks.length - 1; page += 1) {
       if (page > 0) doc.addPage();
-      // Keep the full image dimensions and offset it on each page. jsPDF clips
-      // the page viewport, preserving the same scale and avoiding clustered text.
-      doc.addImage(canvas.toDataURL('image/png'), 'PNG', 0, -page * pageHeight, pageWidth, imgHeight, undefined, 'FAST');
+      const sourceTop = Math.floor(breaks[page] * renderScale);
+      const sourceHeight = Math.ceil((breaks[page + 1] - breaks[page]) * renderScale);
+      const pageCanvas = document.createElement('canvas');
+      pageCanvas.width = canvas.width;
+      pageCanvas.height = sourceHeight;
+      const context = pageCanvas.getContext('2d');
+      if (!context) continue;
+      context.fillStyle = '#ffffff';
+      context.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+      context.drawImage(canvas, 0, sourceTop, canvas.width, sourceHeight, 0, 0, pageCanvas.width, pageCanvas.height);
+      const renderedHeight = (sourceHeight * contentWidth) / canvas.width;
+      doc.addImage(pageCanvas.toDataURL('image/png'), 'PNG', margin, margin, contentWidth, renderedHeight, undefined, 'FAST');
     }
 
     doc.save(`${safeFilePart(fileNameBase)}.pdf`);

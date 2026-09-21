@@ -439,7 +439,7 @@ function SectionBlock({ section, isRight = false }: { section: CVSection; isRigh
   const headFs = isRight ? 10 : 11;
 
   return (
-    <section className="cv-section" style={{ marginBottom: 16, boxSizing: 'border-box', overflow: 'visible', breakInside: 'avoid', pageBreakInside: 'avoid' }}>
+    <section className="cv-section cv-section-block" style={{ marginBottom: 16, boxSizing: 'border-box', overflow: 'visible', breakInside: 'avoid', pageBreakInside: 'avoid' }}>
       <h2 style={{ fontSize: headFs, fontWeight: 700, color: '#333333', textTransform: 'uppercase', letterSpacing: '0.05em', lineHeight: 1.4, borderBottom: '1.5px solid #333333', paddingBottom: 4, margin: '0 0 8px', breakAfter: 'avoid', pageBreakAfter: 'avoid', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
         {section.heading}
       </h2>
@@ -597,7 +597,12 @@ export function formatCVBuilderDataAsText(data: CVBuilderData): string {
       .split(/\r?\n/)
       .map((item) => item.trim())
       .filter(Boolean)
-      .forEach((item) => lines.push(item.startsWith('-') ? item : `- ${item}`));
+      .forEach((item) => {
+        // Remove only an existing bullet marker, never the first character of its
+        // content. This accepts pasted -, *, or • lists without altering text.
+        const text = item.replace(/^(?:[-*•])\s*/, '').trim();
+        if (text) lines.push(`- ${text}`);
+      });
     lines.push('');
   });
 
