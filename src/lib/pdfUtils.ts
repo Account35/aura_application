@@ -333,6 +333,12 @@ async function exportCvPreviewToPdf(fileNameBase: string): Promise<void> {
     column.style.overflow = 'visible';
     column.style.wordBreak = 'break-word';
   });
+  const documentPage = clone.querySelector('.cv-document-page') as HTMLElement | null;
+  if (documentPage) {
+    // The PDF itself supplies a 10mm page margin. Keep only a compact inner
+    // gutter in the captured document to avoid doubling horizontal whitespace.
+    documentPage.style.padding = '8mm 6mm';
+  }
 
   const allTextNodes = clone.querySelectorAll('p, li, span, div, h1, h2, h3, h4, h5, h6, section');
   allTextNodes.forEach((node) => {
@@ -375,7 +381,7 @@ async function exportCvPreviewToPdf(fileNameBase: string): Promise<void> {
     const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait', compress: true });
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
-    const margin = 12;
+    const margin = 10;
     const contentWidth = pageWidth - margin * 2;
     const contentHeight = pageHeight - margin * 2;
     const pageHeightCss = (contentHeight * clone.scrollWidth) / contentWidth;

@@ -560,7 +560,7 @@ function TwoColumnCVPreview({ cvText }: { cvText: string }) {
       <hr style={{ border: 'none', borderTop: '2px solid #333333', margin: '0 0 16px' }} />
 
       {/* Two-column body */}
-      <div className="cv-preview-container cv-two-column">
+      <div className="cv-preview-container cv-two-column cv-layout-grid">
         <div className="cv-left-column">
           {left.map((section, i) => (
             <SectionBlock key={i} section={section} isRight={false} />

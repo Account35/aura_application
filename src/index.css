@@ -91,7 +91,7 @@
   }
 
   #cv-preview {
-    width: 100%;
+    width: 210mm;
     max-width: 100%;
     margin: 0 auto;
     padding: 0;
@@ -112,7 +112,8 @@
   }
 
   .cv-preview-container,
-  .cv-two-column {
+  .cv-two-column,
+  .cv-layout-grid {
     display: grid;
     grid-template-columns: 1.8fr 1.2fr;
     gap: 1.5rem;
@@ -120,10 +121,14 @@
     box-sizing: border-box;
     background: #ffffff;
     overflow: visible;
-    padding: 20px;
+    padding: 0;
     color: #333333;
     line-height: 1.4;
     word-wrap: break-word;
+  }
+
+  .cv-layout-grid > * {
+    min-width: 0;
   }
 
   .cv-preview-container,
