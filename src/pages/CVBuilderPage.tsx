@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/contexts/AuthContext';
-import { generateSingleTurn, getCVBuilderProfile, upsertCVBuilderProfile } from '@/db/api';
+import { getCVBuilderProfile, upsertCVBuilderProfile } from '@/db/api';
 import type {
   CVBuilderData,
   CVCertification,
@@ -17,7 +17,7 @@ import type {
   CVWorkExperience,
 } from '@/types/types';
 import { hasPersonalisedCVAccess } from '@/lib/planUtils';
-import { downloadATSReadableCVAsWord } from '@/lib/pdfUtils';
+import { downloadATSReadableCVAsPDF, downloadATSReadableCVAsWord } from '@/lib/pdfUtils';
 import { FileEdit, Loader2, Lock, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -99,35 +99,6 @@ function normalizeCVData(data: CVBuilderData | null | undefined): CVBuilderData 
     certifications: data.certifications?.length ? data.certifications : empty.certifications,
     references: data.references?.length ? data.references : empty.references,
   };
-}
-
-function sortExperience(entries: CVWorkExperience[]): CVWorkExperience[] {
-  return [...entries].sort((a, b) => {
-    const aDate = a.currentlyWorking ? '9999-12' : a.endDate || a.startDate;
-    const bDate = b.currentlyWorking ? '9999-12' : b.endDate || b.startDate;
-    return bDate.localeCompare(aDate);
-  });
-}
-
-function buildPrompt(data: CVBuilderData): string {
-  return `Target Job Title:
-${data.personalDetails.targetJobTitle}
-
-Candidate CV Builder Data:
-${JSON.stringify(data, null, 2)}
-
-Generate a clean, modern, single-page CV for the target role using the candidate data above.
-
-Output requirements:
-- Return plain text only. Do not use Markdown syntax such as #, **, *, backticks, tables, or HTML.
-- The first line must be the candidate's uppercase full name.
-- The second line must contain the target job title followed by phone, email, LinkedIn or portfolio, and location, separated with | characters.
-- Use these uppercase section headings exactly where applicable: SUMMARY, EXPERIENCE, CUSTOM, LANGUAGES, TRAINING / COURSES, KEY ACHIEVEMENTS, SKILLS, CORE COMPETENCIES, and EDUCATION.
-- Put SUMMARY, EXPERIENCE, CUSTOM, LANGUAGES, and TRAINING / COURSES before the right-column sections. Put KEY ACHIEVEMENTS, SKILLS, CORE COMPETENCIES, and EDUCATION after them so the renderer places them in the right column.
-- For each experience entry, use a job title line, then a company and location line with the date range separated by at least two spaces, followed by concise responsibility lines beginning with a hyphen.
-- Use the same job-entry format for education, training, achievements, and custom entries where useful.
-- Format languages as one per line using the language name, a hyphen, and one of: Native, Fluent, Advanced, Proficient, Intermediate, Conversational, Basic, or Beginner.
-- Keep wording concise and achievement-focused. Do not invent employers, qualifications, dates, contact details, metrics, or technologies that are not present in the source data.`;
 }
 
 function isCVStarted(data: CVBuilderData): boolean {
@@ -601,7 +572,7 @@ export function formatCVBuilderDataAsText(data: CVBuilderData): string {
   const personal = data.personalDetails;
   const lines: string[] = [
     personal.fullName,
-    [personal.phoneNumber, personal.emailAddress, personal.cityProvince].filter(Boolean).join(' | '),
+    [personal.targetJobTitle, personal.phoneNumber, personal.emailAddress, personal.cityProvince].filter(Boolean).join(' | '),
     '',
     'PERSONAL SUMMARY',
     data.personalSummary,
@@ -609,7 +580,9 @@ export function formatCVBuilderDataAsText(data: CVBuilderData): string {
     'EXPERIENCE',
   ];
 
-  sortExperience(data.workExperience).forEach((entry) => {
+  // Preserve the order the candidate entered. Export and preview both consume this
+  // exact serialized representation, so repeated generation is deterministic.
+  data.workExperience.forEach((entry) => {
     if (!entry.jobTitle && !entry.companyName && !entry.responsibilities) return;
     lines.push(entry.jobTitle);
     lines.push(
@@ -762,12 +735,10 @@ export default function CVBuilderPage() {
 
     setGenerating(true);
     await upsertCVBuilderProfile(user.id, cvData);
-    const result = await generateSingleTurn('cv_builder', buildPrompt(cvData));
-    if (!result) {
-      toast.error('Unable to generate your CV');
-      setGenerating(false);
-      return;
-    }
+    // This is intentionally a local transformation. The prior LLM round-trip could
+    // reorder sections or rewrite content on every click; the builder must preserve
+    // the candidate's entries and their original order exactly.
+    const result = formatCVBuilderDataAsText(cvData);
 
     setGeneratedCV(result);
     await upsertCVBuilderProfile(user.id, cvData, result);
@@ -889,7 +860,7 @@ export default function CVBuilderPage() {
                 <CardTitle>Work Experience</CardTitle>
               </CardHeader>
               <CardContent className="space-y-5">
-                {sortExperience(cvData.workExperience).map((entry) => (
+                {cvData.workExperience.map((entry) => (
                   <div key={entry.id} className="rounded-xl border border-border p-4 space-y-4">
                     <div className="grid gap-4 sm:grid-cols-2">
                       <Input placeholder="Job title" value={entry.jobTitle} onChange={(event) => updateArrayEntry<CVWorkExperience>('workExperience', entry.id, { jobTitle: event.target.value })} className="bg-muted border-border" />
@@ -1019,6 +990,9 @@ export default function CVBuilderPage() {
                     <div className="flex flex-col gap-2 sm:flex-row">
                       <Button variant="outline" onClick={() => window.print()}>
                         Print / Save as PDF
+                      </Button>
+                      <Button variant="outline" onClick={() => downloadATSReadableCVAsPDF(generatedCV, fileNameBase)}>
+                        Download as PDF
                       </Button>
                       <Button variant="outline" onClick={() => downloadATSReadableCVAsWord(generatedCV, fileNameBase)}>
                         Download as Word

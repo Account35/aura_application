@@ -286,42 +286,39 @@ async function exportCvPreviewToPdf(fileNameBase: string): Promise<void> {
   clone.style.maxWidth = `${EXPORT_PAGE_WIDTH_PX}px`;
   clone.style.boxSizing = 'border-box';
   clone.style.background = '#ffffff';
-  clone.style.overflow = 'hidden';
+  clone.style.overflow = 'visible';
   clone.style.padding = '20px';
   clone.style.margin = '0';
   clone.style.zIndex = '0';
 
-  const leftCol = clone.querySelector('.left-col, .cv-left-column') as HTMLElement | null;
-  const rightCol = clone.querySelector('.right-col, .cv-right-column') as HTMLElement | null;
-  if (leftCol) {
-    leftCol.style.width = '460px !important';
-    leftCol.style.minWidth = '460px !important';
-    leftCol.style.maxWidth = '460px !important';
-    leftCol.style.float = 'left !important';
-    leftCol.style.display = 'block !important';
-    leftCol.style.boxSizing = 'border-box !important';
-    leftCol.style.overflow = 'hidden';
-    leftCol.style.wordWrap = 'break-word';
-    leftCol.style.wordBreak = 'break-word';
+  const columns = clone.querySelector('.cv-preview-container') as HTMLElement | null;
+  // html2canvas is most reliable with an explicit, fixed grid. Do not use floats:
+  // floated columns collapse their parent height in the cloned export document.
+  if (columns) {
+    columns.style.display = 'grid';
+    columns.style.gridTemplateColumns = 'minmax(0, 1.2fr) minmax(0, 0.8fr)';
+    columns.style.gap = '24px';
+    columns.style.width = '100%';
+    columns.style.padding = '20px';
+    columns.style.overflow = 'visible';
   }
-  if (rightCol) {
-    rightCol.style.width = '290px !important';
-    rightCol.style.minWidth = '290px !important';
-    rightCol.style.maxWidth = '290px !important';
-    rightCol.style.float = 'right !important';
-    rightCol.style.display = 'block !important';
-    rightCol.style.boxSizing = 'border-box !important';
-    rightCol.style.overflow = 'hidden';
-    rightCol.style.wordWrap = 'break-word';
-    rightCol.style.wordBreak = 'break-word';
-  }
+  clone.querySelectorAll('.cv-left-column, .cv-right-column').forEach((node) => {
+    const column = node as HTMLElement;
+    column.style.minWidth = '0';
+    column.style.width = 'auto';
+    column.style.float = 'none';
+    column.style.overflow = 'visible';
+    column.style.wordBreak = 'break-word';
+  });
 
   const allTextNodes = clone.querySelectorAll('p, li, span, div, h1, h2, h3, h4, h5, h6, section');
   allTextNodes.forEach((node) => {
     const target = node as HTMLElement;
-    target.style.overflow = 'hidden';
+    target.style.overflow = 'visible';
     target.style.wordWrap = 'break-word';
     target.style.wordBreak = 'break-word';
+    target.style.whiteSpace = 'pre-line';
+    target.style.lineHeight = '1.45';
     target.style.pageBreakInside = 'avoid';
     target.style.breakInside = 'avoid';
   });
@@ -331,8 +328,8 @@ async function exportCvPreviewToPdf(fileNameBase: string): Promise<void> {
   offscreenRoot.style.left = '-9999px';
   offscreenRoot.style.top = '-9999px';
   offscreenRoot.style.width = `${EXPORT_PAGE_WIDTH_PX}px`;
-  offscreenRoot.style.height = '0';
-  offscreenRoot.style.overflow = 'hidden';
+  offscreenRoot.style.height = 'auto';
+  offscreenRoot.style.overflow = 'visible';
   offscreenRoot.style.pointerEvents = 'none';
   offscreenRoot.appendChild(clone);
   document.body.appendChild(offscreenRoot);
@@ -342,27 +339,27 @@ async function exportCvPreviewToPdf(fileNameBase: string): Promise<void> {
       backgroundColor: '#ffffff',
       scale: 2,
       useCORS: true,
-      allowTaint: true,
+      allowTaint: false,
       logging: false,
       width: EXPORT_PAGE_WIDTH_PX,
       height: Math.max(clone.scrollHeight, 1100),
       scrollX: 0,
       scrollY: 0,
-      windowWidth: 1200,
-      windowHeight: 1200,
+      windowWidth: EXPORT_PAGE_WIDTH_PX,
+      windowHeight: Math.max(clone.scrollHeight, 1100),
     });
 
     const doc = new jsPDF({ unit: 'pt', format: 'a4', compress: true });
-    const pageWidth = 794;
-    const pageHeight = 1123;
-    const imgWidth = pageWidth;
-    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const imgHeight = (canvas.height * pageWidth) / canvas.width;
     const totalPages = Math.max(1, Math.ceil(imgHeight / pageHeight));
 
     for (let page = 0; page < totalPages; page += 1) {
       if (page > 0) doc.addPage();
-      const pageImgHeight = Math.min(imgHeight - page * pageHeight, pageHeight);
-      doc.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, imgWidth, pageImgHeight, undefined, 'FAST');
+      // Keep the full image dimensions and offset it on each page. jsPDF clips
+      // the page viewport, preserving the same scale and avoiding clustered text.
+      doc.addImage(canvas.toDataURL('image/png'), 'PNG', 0, -page * pageHeight, pageWidth, imgHeight, undefined, 'FAST');
     }
 
     doc.save(`${safeFilePart(fileNameBase)}.pdf`);
@@ -374,32 +371,40 @@ async function exportCvPreviewToPdf(fileNameBase: string): Promise<void> {
 function buildWordSectionChildren(section: ColSection, isRight = false): Paragraph[] {
   const paragraphs: Paragraph[] = [
     new Paragraph({
-      text: section.heading.toUpperCase(),
-      heading: HeadingLevel.HEADING_3,
-      spacing: { after: 120 },
+      children: [new TextRun({ text: section.heading.toUpperCase(), bold: true, size: isRight ? 18 : 20, color: '333333' })],
+      spacing: { after: 120, line: 276 },
+      keepNext: true,
       border: { bottom: { color: '000000', style: BorderStyle.SINGLE, size: 1 } },
     }),
   ];
 
   for (const token of section.tokens) {
     if (token.kind === 'entry') {
-      const content = token.right ? `${token.left} — ${token.right}` : token.left;
       paragraphs.push(new Paragraph({
         children: [
-          new TextRun({ text: content, bold: true, size: isRight ? 18 : 20 }),
+          new TextRun({ text: token.left, bold: true, size: isRight ? 18 : 20, color: '333333' }),
+          ...(token.right ? [new TextRun({ text: `  ${token.right}`, size: 16, color: '6B7280' })] : []),
         ],
-        spacing: { after: 50 },
+        spacing: { after: 120, line: 276 },
+        keepLines: true,
       }));
     } else if (token.kind === 'bullet') {
       paragraphs.push(new Paragraph({
-        text: `• ${token.text}`,
-        spacing: { after: 50 },
+        children: [new TextRun({ text: token.text, size: isRight ? 18 : 20, color: '333333' })],
+        bullet: { level: 0 },
+        spacing: { after: 120, line: 276 },
+        keepLines: true,
       }));
     } else if (token.kind === 'plain' || token.kind === 'heading') {
       paragraphs.push(new Paragraph({
-        text: token.kind === 'heading' ? token.text.toUpperCase() : token.text,
-        spacing: { after: 40 },
-        style: token.kind === 'heading' ? 'Heading4' : undefined,
+        children: [new TextRun({
+          text: token.kind === 'heading' ? token.text.toUpperCase() : token.text,
+          bold: token.kind === 'heading',
+          size: isRight ? 18 : 20,
+          color: token.kind === 'heading' ? '333333' : '555555',
+        })],
+        spacing: { after: 120, line: 276 },
+        keepLines: true,
       }));
     }
   }

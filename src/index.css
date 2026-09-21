@@ -175,8 +175,8 @@
     }
 
     #cv-preview {
-      width: 794px !important;
-      max-width: 794px !important;
+      width: 190mm !important;
+      max-width: 190mm !important;
       position: absolute;
       left: 0;
       top: 0;
@@ -187,14 +187,21 @@
     }
 
     .cv-preview-container {
-      width: 100%;
-      min-height: 1123px;
-      grid-template-columns: 1.2fr 0.8fr;
-      gap: 24px;
-      padding: 20px;
+      display: block !important;
+      width: 100% !important;
+      min-height: 0;
+      padding: 0;
       overflow: visible;
       break-inside: avoid;
       page-break-inside: avoid;
+    }
+
+    .cv-left-column,
+    .cv-right-column {
+      display: block !important;
+      width: 100% !important;
+      min-width: 0 !important;
+      float: none !important;
     }
 
     #cv-preview section,
@@ -207,6 +214,8 @@
     #cv-preview p {
       break-inside: avoid;
       page-break-inside: avoid;
+      white-space: pre-line;
+      line-height: 1.45;
     }
   }
 
