@@ -404,7 +404,18 @@ async function exportCvPreviewToPdf(fileNameBase: string): Promise<void> {
   }
 }
 
+function buildWordTextRuns(text: string, isRight: boolean, supportsTopicLeads: boolean, bold = false): TextRun[] {
+  const size = isRight ? 18 : 20;
+  const topic = supportsTopicLeads ? text.match(/^(.+?(?:\s[—–-]|:))\s*(.*)$/) : null;
+  if (!topic) return [new TextRun({ text, bold, size, color: bold ? '333333' : '555555' })];
+  return [
+    new TextRun({ text: topic[1], bold: true, size, color: '2D3748' }),
+    ...(topic[2] ? [new TextRun({ text: ` ${topic[2]}`, size, color: '555555' })] : []),
+  ];
+}
+
 function buildWordSectionChildren(section: ColSection, isRight = false): Paragraph[] {
+  const supportsTopicLeads = /EDUCATION|SKILLS|CORE COMPETENC/i.test(section.heading);
   const paragraphs: Paragraph[] = [
     new Paragraph({
       children: [new TextRun({ text: section.heading.toUpperCase(), bold: true, size: isRight ? 18 : 20, color: '333333' })],
@@ -433,12 +444,12 @@ function buildWordSectionChildren(section: ColSection, isRight = false): Paragra
       }));
     } else if (token.kind === 'plain' || token.kind === 'heading') {
       paragraphs.push(new Paragraph({
-        children: [new TextRun({
-          text: token.kind === 'heading' ? token.text.toUpperCase() : token.text,
-          bold: token.kind === 'heading',
-          size: isRight ? 18 : 20,
-          color: token.kind === 'heading' ? '333333' : '555555',
-        })],
+        children: buildWordTextRuns(
+          token.kind === 'heading' ? token.text.toUpperCase() : token.text,
+          isRight,
+          supportsTopicLeads,
+          token.kind === 'heading'
+        ),
         spacing: { after: 120, line: 276 },
         keepLines: true,
       }));

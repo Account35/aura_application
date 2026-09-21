@@ -435,8 +435,15 @@ function buildColumnSections(tokens: ParsedLine[]): {
 
 function SectionBlock({ section, isRight = false }: { section: CVSection; isRight?: boolean }) {
   const isLanguages = /LANGUAGE/i.test(section.heading);
+  const supportsTopicLeads = /EDUCATION|SKILLS|CORE COMPETENC/i.test(section.heading);
   const fs = isRight ? 11 : 12;
   const headFs = isRight ? 10 : 11;
+  const renderTopicLead = (text: string) => {
+    if (!supportsTopicLeads) return text;
+    const match = text.match(/^(.+?(?:\s[—–-]|:))\s*(.*)$/);
+    if (!match) return text;
+    return <><strong className="cv-topic-lead">{match[1]}</strong>{match[2] ? ` ${match[2]}` : ''}</>;
+  };
 
   return (
     <section className="cv-section cv-section-block" style={{ marginBottom: 16, boxSizing: 'border-box', overflow: 'visible', breakInside: 'avoid', pageBreakInside: 'avoid' }}>
@@ -477,11 +484,11 @@ function SectionBlock({ section, isRight = false }: { section: CVSection; isRigh
           {section.tokens.map((token, i) => {
             if (token.kind === 'entry') {
               return (
-                <div key={i} className="cv-entry" style={{ marginBottom: 2, overflow: 'hidden', wordWrap: 'break-word', breakInside: 'avoid', pageBreakInside: 'avoid' }}>
+                <div key={i} className="cv-entry experience-item" style={{ marginBottom: 6, overflow: 'visible', wordWrap: 'break-word', breakInside: 'avoid', pageBreakInside: 'avoid' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8, overflow: 'hidden' }}>
-                    <span style={{ fontSize: fs, fontWeight: 700, color: '#333333', wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{token.left}</span>
+                    <span className="cv-entry-title" style={{ fontSize: fs, fontWeight: 700, color: '#333333', wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{token.left}</span>
                     {token.right && (
-                      <span style={{ fontSize: 10, color: '#6b7280', flexShrink: 0, marginLeft: 6, whiteSpace: 'nowrap' }}>{token.right}</span>
+                      <span className="cv-entry-details" style={{ fontSize: 10, color: '#6b7280', flexShrink: 0, marginLeft: 6, whiteSpace: 'nowrap' }}>{token.right}</span>
                     )}
                   </div>
                 </div>
@@ -496,8 +503,8 @@ function SectionBlock({ section, isRight = false }: { section: CVSection; isRigh
             }
             if (token.kind === 'plain') {
               return (
-                <p key={i} style={{ fontSize: fs, color: '#555', lineHeight: 1.4, margin: '0 0 3px', whiteSpace: 'normal', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
-                  {token.text}
+                <p key={i} className="skills-item" style={{ fontSize: fs, color: '#555', lineHeight: 1.4, margin: '0 0 3px', whiteSpace: 'pre-line', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
+                  {renderTopicLead(token.text)}
                 </p>
               );
             }
@@ -534,10 +541,10 @@ function TwoColumnCVPreview({ cvText }: { cvText: string }) {
           </p>
         )}
         {contactParts.length > 0 && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '5px 14px' }}>
+          <div className="cv-contact-info">
             {contactParts.map((part, i) => (
-              <span key={i} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#444' }}>
-                <span dangerouslySetInnerHTML={{ __html: part.icon }} />
+              <span key={i} className="cv-contact-item">
+                <span className="cv-contact-icon" dangerouslySetInnerHTML={{ __html: part.icon }} />
                 {part.text}
               </span>
             ))}
@@ -584,7 +591,7 @@ export function formatCVBuilderDataAsText(data: CVBuilderData): string {
   // exact serialized representation, so repeated generation is deterministic.
   data.workExperience.forEach((entry) => {
     if (!entry.jobTitle && !entry.companyName && !entry.responsibilities) return;
-    lines.push(entry.jobTitle);
+    lines.push(entry.jobTitle ? `**${entry.jobTitle}**` : '');
     lines.push(
       [
         entry.companyName,
@@ -609,7 +616,7 @@ export function formatCVBuilderDataAsText(data: CVBuilderData): string {
   lines.push('EDUCATION');
   data.education.forEach((entry) => {
     if (!entry.qualificationName && !entry.institutionName) return;
-    lines.push(entry.qualificationName);
+    lines.push(entry.qualificationName ? `**${entry.qualificationName}**` : '');
     lines.push([entry.institutionName, entry.yearCompleted].filter(Boolean).join(' | '));
     if (entry.achievements) lines.push(entry.achievements);
     lines.push('');
