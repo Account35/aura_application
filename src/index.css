@@ -223,10 +223,17 @@
 
   #cv-preview .cv-contact-bar {
     display: flex;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: center;
     gap: 0.5rem 1rem;
+    width: 100%;
+    max-width: 100%;
+    margin-top: 0.5rem;
+  }
+
+  #cv-preview .cv-header-contact {
+    gap: 0.5rem 1.25rem;
   }
 
   #cv-preview .cv-contact-icon,

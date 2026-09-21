@@ -527,7 +527,18 @@ function SectionBlock({ section, isRight = false }: { section: CVSection; isRigh
 function TwoColumnCVPreview({ cvText }: { cvText: string }) {
   const tokens = parseCV(cvText);
   const { name, subtitle, contact, left, right } = buildColumnSections(tokens);
-  const contactParts = contact ? parseContactParts(contact) : [];
+  const parsedContactParts = contact ? parseContactParts(contact) : [];
+  // The deterministic builder stores the target role first on the contact line.
+  // Promote it to the subtitle so it is not rendered as a location-icon item.
+  const firstPart = parsedContactParts[0];
+  const firstPartIsRole = Boolean(
+    !subtitle && firstPart &&
+    !firstPart.text.includes('@') &&
+    !/^[+\d\s()-]{6,}$/.test(firstPart.text) &&
+    !/linkedin|github|portfolio|http/i.test(firstPart.text)
+  );
+  const displaySubtitle = subtitle || (firstPartIsRole ? firstPart?.text : '');
+  const contactParts = firstPartIsRole ? parsedContactParts.slice(1) : parsedContactParts;
 
   return (
     <div className="cv-preview-document cv-document-page" style={{ boxSizing: 'border-box', minWidth: 0, margin: '0 auto', fontFamily: 'Inter, Roboto, Arial, sans-serif', color: '#333333', background: '#fff', lineHeight: 1.4, overflow: 'visible', wordWrap: 'break-word' }}>
@@ -536,13 +547,13 @@ function TwoColumnCVPreview({ cvText }: { cvText: string }) {
         <p style={{ fontSize: 22, fontWeight: 800, textAlign: 'center', color: '#1a1a1a', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 4px' }}>
           {name || 'YOUR NAME'}
         </p>
-        {subtitle && (
+        {displaySubtitle && (
           <p style={{ fontSize: 13, textAlign: 'center', color: '#1A73E8', fontWeight: 600, margin: '0 0 8px' }}>
-            {subtitle}
+            {displaySubtitle}
           </p>
         )}
         {contactParts.length > 0 && (
-          <div className="cv-contact-info cv-contact-bar">
+          <div className="cv-contact-info cv-contact-bar cv-header-contact">
             {contactParts.map((part, i) => (
               <span key={i} className="cv-contact-item">
                 <span className="cv-contact-icon" dangerouslySetInnerHTML={{ __html: part.icon }} />
