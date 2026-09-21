@@ -447,7 +447,7 @@ function SectionBlock({ section, isRight = false }: { section: CVSection; isRigh
 
   return (
     <section className="cv-section cv-section-block" style={{ marginBottom: 16, boxSizing: 'border-box', overflow: 'visible', breakInside: 'avoid', pageBreakInside: 'avoid' }}>
-      <h2 style={{ fontSize: headFs, fontWeight: 700, color: '#333333', textTransform: 'uppercase', letterSpacing: '0.05em', lineHeight: 1.4, borderBottom: '1.5px solid #333333', paddingBottom: 4, margin: '0 0 8px', breakAfter: 'avoid', pageBreakAfter: 'avoid', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+      <h2 className="cv-section-heading" style={{ fontSize: headFs, fontWeight: 700, color: '#333333', textTransform: 'uppercase', letterSpacing: '0.05em', lineHeight: 1.4, paddingBottom: 4, margin: '0 0 8px', breakAfter: 'avoid', pageBreakAfter: 'avoid', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
         {section.heading}
       </h2>
 
@@ -529,7 +529,7 @@ function TwoColumnCVPreview({ cvText }: { cvText: string }) {
   const contactParts = contact ? parseContactParts(contact) : [];
 
   return (
-    <div className="cv-preview-document" style={{ boxSizing: 'border-box', minWidth: 0, margin: '0 auto', padding: '20px', fontFamily: 'Inter, Roboto, Arial, sans-serif', color: '#333333', background: '#fff', lineHeight: 1.4, overflow: 'visible', wordWrap: 'break-word' }}>
+    <div className="cv-preview-document cv-document-page" style={{ boxSizing: 'border-box', minWidth: 0, margin: '0 auto', fontFamily: 'Inter, Roboto, Arial, sans-serif', color: '#333333', background: '#fff', lineHeight: 1.4, overflow: 'visible', wordWrap: 'break-word' }}>
       {/* Header */}
       <div style={{ marginBottom: 16 }}>
         <p style={{ fontSize: 22, fontWeight: 800, textAlign: 'center', color: '#1a1a1a', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 4px' }}>
@@ -559,7 +559,7 @@ function TwoColumnCVPreview({ cvText }: { cvText: string }) {
       <hr style={{ border: 'none', borderTop: '2px solid #333333', margin: '0 0 16px' }} />
 
       {/* Two-column body */}
-      <div className="cv-preview-container">
+      <div className="cv-preview-container cv-two-column">
         <div className="cv-left-column">
           {left.map((section, i) => (
             <SectionBlock key={i} section={section} isRight={false} />
@@ -1019,10 +1019,10 @@ export default function CVBuilderPage() {
                     style={{
                       background: '#fff',
                       margin: '0 auto',
-                      padding: '36px 40px',
+                      padding: 0,
                       fontFamily: 'Inter, Roboto, Arial, sans-serif',
-                      borderRadius: 8,
-                      boxShadow: 'inset 0 0 0 1px #e5e7eb',
+                      borderRadius: 0,
+                      boxShadow: 'none',
                     }}
                   >
                     <TwoColumnCVPreview cvText={generatedCV} />

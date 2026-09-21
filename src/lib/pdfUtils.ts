@@ -310,7 +310,7 @@ async function exportCvPreviewToPdf(fileNameBase: string): Promise<void> {
   clone.style.boxSizing = 'border-box';
   clone.style.background = '#ffffff';
   clone.style.overflow = 'visible';
-  clone.style.padding = '20px';
+  clone.style.padding = '0';
   clone.style.margin = '0';
   clone.style.zIndex = '0';
 
@@ -372,10 +372,10 @@ async function exportCvPreviewToPdf(fileNameBase: string): Promise<void> {
       windowHeight: Math.max(clone.scrollHeight, 1100),
     });
 
-    const doc = new jsPDF({ unit: 'pt', format: 'a4', compress: true });
+    const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait', compress: true });
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
-    const margin = 28.35; // 10mm in PDF points
+    const margin = 10;
     const contentWidth = pageWidth - margin * 2;
     const contentHeight = pageHeight - margin * 2;
     const pageHeightCss = (contentHeight * clone.scrollWidth) / contentWidth;
