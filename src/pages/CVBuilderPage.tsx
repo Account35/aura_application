@@ -435,6 +435,7 @@ function buildColumnSections(tokens: ParsedLine[]): {
 
 function SectionBlock({ section, isRight = false }: { section: CVSection; isRight?: boolean }) {
   const isLanguages = /LANGUAGE/i.test(section.heading);
+  const isEducation = /EDUCATION|QUALIFICATION/i.test(section.heading);
   const supportsTopicLeads = /EDUCATION|SKILLS|CORE COMPETENC/i.test(section.heading);
   const fs = isRight ? 11 : 12;
   const headFs = isRight ? 10 : 11;
@@ -446,7 +447,7 @@ function SectionBlock({ section, isRight = false }: { section: CVSection; isRigh
   };
 
   return (
-    <section className="cv-section cv-section-block" style={{ marginBottom: 16, boxSizing: 'border-box', overflow: 'visible', breakInside: 'avoid', pageBreakInside: 'avoid' }}>
+    <section className={`cv-section cv-section-block${isEducation ? ' education-item' : ''}`} style={{ marginBottom: 16, boxSizing: 'border-box', overflow: 'visible', breakInside: 'avoid', pageBreakInside: 'avoid' }}>
       <h2 className="cv-section-heading" style={{ fontSize: headFs, fontWeight: 700, color: '#333333', textTransform: 'uppercase', letterSpacing: '0.05em', lineHeight: 1.4, paddingBottom: 4, margin: '0 0 8px', breakAfter: 'avoid', pageBreakAfter: 'avoid', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
         {section.heading}
       </h2>
@@ -541,7 +542,7 @@ function TwoColumnCVPreview({ cvText }: { cvText: string }) {
           </p>
         )}
         {contactParts.length > 0 && (
-          <div className="cv-contact-info">
+          <div className="cv-contact-info cv-contact-bar">
             {contactParts.map((part, i) => (
               <span key={i} className="cv-contact-item">
                 <span className="cv-contact-icon" dangerouslySetInnerHTML={{ __html: part.icon }} />
@@ -600,8 +601,10 @@ export function formatCVBuilderDataAsText(data: CVBuilderData): string {
         .filter(Boolean)
         .join(' | ')
     );
+    // Responsibilities are line-oriented input. Deliberately split only at a
+    // newline: splitting on "- " can remove the opening words of a sentence.
     entry.responsibilities
-      .split(/\r?\n/)
+      .split(/\r\n|\n|\r/)
       .map((item) => item.trim())
       .filter(Boolean)
       .forEach((item) => {

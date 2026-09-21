@@ -179,7 +179,7 @@
 
   #cv-preview .cv-section-heading {
     border: 0;
-    border-bottom: 1px solid #e2e8f0 !important;
+    border-bottom: 1.5px solid #cbd5e1 !important;
   }
 
   #cv-preview .cv-section-block,
@@ -213,6 +213,15 @@
     font-size: 0.9rem;
     line-height: 1.2;
     color: #444;
+    white-space: nowrap;
+  }
+
+  #cv-preview .cv-contact-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem 1rem;
   }
 
   #cv-preview .cv-contact-icon,
@@ -235,7 +244,7 @@
   #cv-preview .cv-entry-details {
     font-weight: 500;
     font-size: 0.9rem !important;
-    color: #4a5568 !important;
+    color: #64748b !important;
     font-style: italic;
   }
 

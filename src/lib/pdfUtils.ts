@@ -375,7 +375,7 @@ async function exportCvPreviewToPdf(fileNameBase: string): Promise<void> {
     const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait', compress: true });
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
-    const margin = 10;
+    const margin = 12;
     const contentWidth = pageWidth - margin * 2;
     const contentHeight = pageHeight - margin * 2;
     const pageHeightCss = (contentHeight * clone.scrollWidth) / contentWidth;
