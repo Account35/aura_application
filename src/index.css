@@ -218,7 +218,7 @@
 
   #cv-preview .cv-contact-bar {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: center;
     justify-content: center;
     gap: 0.5rem 1rem;
@@ -257,6 +257,10 @@
     .cv-document-page {
       padding: 1.5rem 1rem;
       min-height: 0;
+    }
+
+    #cv-preview .cv-contact-bar {
+      flex-wrap: wrap;
     }
   }
 
