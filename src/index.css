@@ -106,7 +106,7 @@
     min-height: 297mm;
     max-width: 100%;
     margin: 0 auto;
-    padding: 18mm 15mm;
+    padding: 8mm 6mm;
     background: #ffffff;
     box-sizing: border-box;
   }
@@ -312,7 +312,7 @@
       width: 210mm !important;
       min-height: 297mm !important;
       max-width: none !important;
-      padding: 18mm 15mm !important;
+      padding: 8mm 6mm !important;
     }
 
     .cv-preview-container {
