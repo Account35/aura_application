@@ -279,7 +279,7 @@ Deno.serve(async (req) => {
 
     const { error: profileErr } = await supabase
       .from('profiles')
-      .update({ plan: planType, plan_renewal_date: renewalDate.toISOString() })
+      .update({ plan: planType, plan_started_at: now.toISOString(), plan_renewal_date: renewalDate.toISOString() })
       .eq('id', userId);
 
     if (profileErr) {

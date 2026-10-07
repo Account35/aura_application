@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,7 +17,8 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import Layout from '@/components/layouts/Layout';
-import { updateProfile, cancelSubscription, reinstateSubscription } from '@/db/api';
+import { updateProfile, cancelSubscription, reinstateSubscription, getMockInterviewUsage } from '@/db/api';
+import type { MockInterviewUsage } from '@/types/types';
 import {
   getEffectivePlanName,
   isInTrial,
@@ -28,7 +30,7 @@ import {
   canCancelLearningHub,
   canReinstateLearningHub,
 } from '@/lib/planUtils';
-import { BookOpen, CheckCircle2, XCircle, AlertTriangle, RotateCcw } from 'lucide-react';
+import { BookOpen, CheckCircle2, XCircle, AlertTriangle, RotateCcw, Video } from 'lucide-react';
 
 // ─── Cancellation Modal ───────────────────────────────────────────────────────
 interface CancelModalProps {
@@ -211,6 +213,7 @@ export default function SettingsPage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [saving, setSaving] = useState(false);
+  const [mockInterviewUsage, setMockInterviewUsage] = useState<MockInterviewUsage | null>(null);
 
   // Modal state
   const [cancelModal, setCancelModal] = useState<{ open: boolean; target: 'plan' | 'learning_hub' }>({
@@ -244,7 +247,7 @@ export default function SettingsPage() {
   const planAmountDisplay = (() => {
     if (!profile) return '';
     if (profile.plan === 'pro') return 'R300/year or R30 for 2 months (based on your billing period)';
-    if (profile.plan === 'career_accelerator') return 'R300/year';
+    if (profile.plan === 'career_accelerator') return 'R600/year';
     return '';
   })();
 
@@ -260,6 +263,11 @@ export default function SettingsPage() {
       setName(profile.name);
       setEmail(profile.email);
     }
+  }, [profile]);
+
+  useEffect(() => {
+    if (!profile) return;
+    getMockInterviewUsage().then(setMockInterviewUsage);
   }, [profile]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -523,6 +531,25 @@ export default function SettingsPage() {
               )}
 
               {/* ── Subscription Action Buttons ── */}
+              <div className="flex items-center justify-between gap-4 border-t border-border py-4">
+                <div className="flex items-center gap-3">
+                  <Video className="h-4 w-4 shrink-0 text-accent" />
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Mock Interview Sessions</p>
+                    <p className="mt-1 font-semibold">
+                      {mockInterviewUsage?.is_trial
+                        ? 'Unlimited during free trial'
+                        : mockInterviewUsage?.plan === 'career_accelerator'
+                          ? 'Unlimited'
+                          : mockInterviewUsage?.plan === 'pro'
+                            ? `${mockInterviewUsage.used} of 5 used · ${mockInterviewUsage.remaining ?? 0} remaining`
+                            : 'Available during free trial or with a paid plan'}
+                    </p>
+                  </div>
+                </div>
+                <Button asChild variant="outline" size="sm"><Link to="/mock-interview">Open</Link></Button>
+              </div>
+
               {(showCancelPlan || showReinstatePlan || showCancelLH || showReinstateLH) && (
                 <>
                   <Separator className="my-2" />

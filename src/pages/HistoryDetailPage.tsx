@@ -7,7 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import Layout from '@/components/layouts/Layout';
 import { getCoverLetterById } from '@/db/api';
 import type { CoverLetter } from '@/types/types';
-import { ArrowLeft, Copy, Download } from 'lucide-react';
+import { ArrowLeft, Copy, Download, Video } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   stripCoverLetterMarkdown,
@@ -92,41 +92,52 @@ export default function HistoryDetailPage() {
             </CardContent>
           </Card>
         ) : coverLetter ? (
-          <Card className="border-border">
-            <CardHeader>
-              <div className="flex items-start justify-between">
-                <div>
-                  <CardTitle className="text-3xl mb-2">Cover Letter</CardTitle>
-                  <p className="text-secondary">
-                    Generated on {formatDate(coverLetter.created_at)}
-                  </p>
+          <>
+            <Card className="border-border">
+              <CardHeader>
+                <div className="flex items-start justify-between">
+                  <div>
+                    <CardTitle className="text-3xl mb-2">Cover Letter</CardTitle>
+                    <p className="text-secondary">
+                      Generated on {formatDate(coverLetter.created_at)}
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="icon" onClick={handleCopy}>
+                      <Copy className="w-4 h-4" />
+                    </Button>
+                    <Button variant="outline" size="icon" onClick={handleDownload}>
+                      <Download className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="icon" onClick={handleCopy}>
-                    <Copy className="w-4 h-4" />
-                  </Button>
-                  <Button variant="outline" size="icon" onClick={handleDownload}>
-                    <Download className="w-4 h-4" />
-                  </Button>
+              </CardHeader>
+              <CardContent>
+                <div
+                  style={{
+                    background: '#fff',
+                    padding: '40px',
+                    fontFamily: 'Inter, sans-serif',
+                    color: '#000',
+                    lineHeight: 1.8,
+                    borderRadius: 8,
+                    boxShadow: 'inset 0 0 0 1px #e5e7eb',
+                  }}
+                >
+                  {renderCoverLetterPreview(coverLetter.content)}
                 </div>
+              </CardContent>
+            </Card>
+
+            {coverLetter.application_status === 'Interview' && (
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-lg border border-accent/20 bg-accent/5 p-4">
+                <p className="text-sm text-secondary">Would you like to start a mock interview for this application?</p>
+                <Button size="sm" onClick={() => navigate('/mock-interview', { state: { coverLetter } })}>
+                  <Video className="mr-2 h-4 w-4" /> Prepare for Interview
+                </Button>
               </div>
-            </CardHeader>
-            <CardContent>
-              <div
-                style={{
-                  background: '#fff',
-                  padding: '40px',
-                  fontFamily: 'Inter, sans-serif',
-                  color: '#000',
-                  lineHeight: 1.8,
-                  borderRadius: 8,
-                  boxShadow: 'inset 0 0 0 1px #e5e7eb',
-                }}
-              >
-                {renderCoverLetterPreview(coverLetter.content)}
-              </div>
-            </CardContent>
-          </Card>
+            )}
+          </>
         ) : null}
       </div>
     </Layout>

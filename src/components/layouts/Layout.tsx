@@ -2,11 +2,12 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { Menu, Home, FileText, History, Settings, LogOut, BookOpen, FilePenLine } from 'lucide-react';
+import { Menu, Home, FileText, History, Settings, LogOut, BookOpen, FilePenLine, Video } from 'lucide-react';
 import { toast } from 'sonner';
 import { useState } from 'react';
 import GenerationIndicator from '@/components/common/GenerationIndicator';
 import ChatWidget from '@/components/common/ChatWidget';
+import NotificationBell from '@/components/common/NotificationBell';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -16,6 +17,7 @@ const navigation = [
   { name: 'Dashboard', path: '/dashboard', icon: Home },
   { name: 'Generate Cover Letter', path: '/generate', icon: FileText },
   { name: 'CV Builder', path: '/cv-builder', icon: FilePenLine },
+  { name: 'Mock Interview', path: '/mock-interview', icon: Video },
   { name: 'History', path: '/history', icon: History },
   { name: 'Learning Hub', path: '/learning-hub', icon: BookOpen },
   { name: 'Settings', path: '/settings', icon: Settings },
@@ -98,6 +100,8 @@ export default function Layout({ children }: LayoutProps) {
             <span className="text-xl font-bold">Aur.a</span>
           </Link>
 
+          <NotificationBell />
+
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
             <SheetTrigger asChild>
               <Button variant="outline" size="icon">
@@ -141,6 +145,9 @@ export default function Layout({ children }: LayoutProps) {
 
       {/* Main Content */}
       <main className="flex-1 min-w-0 lg:ml-0 pt-16 lg:pt-0 overflow-x-hidden">
+        <div className="hidden lg:flex justify-end border-b border-border px-6 py-2">
+          <NotificationBell />
+        </div>
         <div className="container mx-auto p-6 max-w-7xl">{children}</div>
       </main>
 

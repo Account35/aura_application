@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { FileText, Sparkles, Target, Upload, FileCheck, Zap, Check, BookOpen } from 'lucide-react';
+import { Sparkles, Upload, Zap, Check, BookOpen, BriefcaseBusiness, Video } from 'lucide-react';
 
 export default function LandingPage() {
   const plans = [
@@ -27,6 +27,7 @@ export default function LandingPage() {
         'Unlimited generations',
         '3 AI refinement messages per cover letter',
         'ATS score visible (reasons blurred)',
+        '5 mock interview sessions per month',
       ],
       addonNote: {
         twoMonths: 'R50 for 2 months',
@@ -36,12 +37,15 @@ export default function LandingPage() {
     },
     {
       name: 'Career Accelerator',
-      price: 'R300/year',
+      price: 'R600/year',
       trial: 'Start with 5-day trial',
       features: [
         'Unlimited generations',
         'Unlimited AI chat',
         'Full ATS score with all reasons',
+        'Unlimited mock interview sessions',
+        'Learning Hub included',
+        'Full post-interview AI feedback report',
       ],
       addonNote: {
         twoMonths: 'R100 for 2 months',
@@ -58,13 +62,13 @@ export default function LandingPage() {
         <div className="container mx-auto px-4 max-w-6xl">
           <div className="text-center space-y-8">
             <h1 className="text-5xl md:text-7xl font-bold tracking-tight text-balance">
-              Generate Professional
+              From Application to Interview
               <br />
-              <span className="text-accent">Cover Letters</span> with AI
+              <span className="text-accent">Your Complete Job Search</span>
             </h1>
             <p className="text-xl md:text-2xl text-secondary max-w-3xl mx-auto text-pretty">
-              Aur.a helps job seekers create tailored, ATS-compatible cover letters in minutes.
-              Powered by advanced AI to give you the competitive edge.
+              Aur.a supports your entire job seeking journey with AI cover letter generation,
+              application tracking, mock interview preparation, and career learning resources.
             </p>
             <div className="flex flex-col items-center gap-4">
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-accent/10 border border-accent/20">
@@ -85,21 +89,20 @@ export default function LandingPage() {
         <div className="container mx-auto px-4 max-w-6xl">
           <div className="text-center mb-16">
             <h2 className="text-4xl md:text-5xl font-bold mb-4 text-balance">How It Works</h2>
-            <p className="text-xl text-secondary">Three simple steps to your perfect cover letter</p>
+            <p className="text-xl text-secondary">From your first application to your next opportunity</p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
             <Card className="border-border text-center h-full">
               <CardHeader>
                 <div className="w-16 h-16 rounded-full bg-accent/10 flex items-center justify-center mx-auto mb-4">
                   <Upload className="w-8 h-8 text-accent" />
                 </div>
-                <CardTitle className="text-2xl">1. Upload your CV</CardTitle>
+                <CardTitle className="text-2xl">1. Generate your cover letter</CardTitle>
               </CardHeader>
               <CardContent>
                 <CardDescription className="text-base text-secondary text-pretty">
-                  Upload your CV as a PDF file. Our AI will extract and analyze all the important
-                  details from your document.
+                  Create a tailored cover letter matched to your experience and the role.
                 </CardDescription>
               </CardContent>
             </Card>
@@ -107,14 +110,13 @@ export default function LandingPage() {
             <Card className="border-border text-center h-full">
               <CardHeader>
                 <div className="w-16 h-16 rounded-full bg-accent/10 flex items-center justify-center mx-auto mb-4">
-                  <FileText className="w-8 h-8 text-accent" />
+                  <BriefcaseBusiness className="w-8 h-8 text-accent" />
                 </div>
-                <CardTitle className="text-2xl">2. Enter job details</CardTitle>
+                <CardTitle className="text-2xl">2. Track your application status</CardTitle>
               </CardHeader>
               <CardContent>
                 <CardDescription className="text-base text-secondary text-pretty">
-                  Provide the job title and paste the job description. Our AI will analyze the
-                  requirements and match them to your experience.
+                  Keep every application organized from submission through interview and offer.
                 </CardDescription>
               </CardContent>
             </Card>
@@ -122,15 +124,22 @@ export default function LandingPage() {
             <Card className="border-border text-center h-full">
               <CardHeader>
                 <div className="w-16 h-16 rounded-full bg-accent/10 flex items-center justify-center mx-auto mb-4">
-                  <Sparkles className="w-8 h-8 text-accent" />
+                  <Video className="w-8 h-8 text-accent" />
                 </div>
-                <CardTitle className="text-2xl">3. Generate your letter</CardTitle>
+                <CardTitle className="text-2xl">3. Prepare with a mock interview</CardTitle>
               </CardHeader>
               <CardContent>
                 <CardDescription className="text-base text-secondary text-pretty">
-                  Click generate and receive a professional, tailored cover letter ready to send.
+                  Practice with an AI interviewer and build confidence for your next conversation.
                 </CardDescription>
               </CardContent>
+            </Card>
+            <Card className="border-border text-center h-full">
+              <CardHeader>
+                <div className="w-16 h-16 rounded-full bg-accent/10 flex items-center justify-center mx-auto mb-4"><Sparkles className="w-8 h-8 text-accent" /></div>
+                <CardTitle className="text-2xl">4. Land the job</CardTitle>
+              </CardHeader>
+              <CardContent><CardDescription className="text-base text-secondary text-pretty">Use career learning resources and interview feedback to keep improving.</CardDescription></CardContent>
             </Card>
           </div>
         </div>
@@ -146,18 +155,17 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
             <Card className="border-border h-full">
               <CardHeader>
                 <div className="w-12 h-12 rounded-lg bg-accent/10 flex items-center justify-center mb-4">
-                  <Zap className="w-6 h-6 text-accent" />
+                  <BriefcaseBusiness className="w-6 h-6 text-accent" />
                 </div>
-                <CardTitle className="text-2xl">AI-Powered Generation</CardTitle>
+                <CardTitle className="text-2xl">Application Tracking</CardTitle>
               </CardHeader>
               <CardContent>
                 <CardDescription className="text-base text-secondary text-pretty">
-                  Advanced AI analyzes your CV and the job description to create perfectly tailored
-                  cover letters that highlight your relevant experience.
+                  Keep every application organized and see your progress from Applied through Interview and Offer.
                 </CardDescription>
               </CardContent>
             </Card>
@@ -165,14 +173,13 @@ export default function LandingPage() {
             <Card className="border-border h-full">
               <CardHeader>
                 <div className="w-12 h-12 rounded-lg bg-accent/10 flex items-center justify-center mb-4">
-                  <Target className="w-6 h-6 text-accent" />
+                  <Video className="w-6 h-6 text-accent" />
                 </div>
-                <CardTitle className="text-2xl">ATS Compatibility</CardTitle>
+                <CardTitle className="text-2xl">Mock Interview Practice</CardTitle>
               </CardHeader>
               <CardContent>
                 <CardDescription className="text-base text-secondary text-pretty">
-                  Get an ATS compatibility score to ensure your application passes automated
-                  screening systems and reaches human recruiters.
+                  Practice realistic interview conversations and get feedback to strengthen your answers.
                 </CardDescription>
               </CardContent>
             </Card>
@@ -180,16 +187,19 @@ export default function LandingPage() {
             <Card className="border-border h-full">
               <CardHeader>
                 <div className="w-12 h-12 rounded-lg bg-accent/10 flex items-center justify-center mb-4">
-                  <FileCheck className="w-6 h-6 text-accent" />
+                  <BookOpen className="w-6 h-6 text-accent" />
                 </div>
-                <CardTitle className="text-2xl">Iterative Refinement</CardTitle>
+                <CardTitle className="text-2xl">Career Learning Resources</CardTitle>
               </CardHeader>
               <CardContent>
                 <CardDescription className="text-base text-secondary text-pretty">
-                  Use our AI chat panel to refine your cover letter with natural language
-                  instructions until it's perfect.
+                  Build job search, communication, and career skills with curated learning resources.
                 </CardDescription>
               </CardContent>
+            </Card>
+            <Card className="border-border h-full">
+              <CardHeader><div className="w-12 h-12 rounded-lg bg-accent/10 flex items-center justify-center mb-4"><Zap className="w-6 h-6 text-accent" /></div><CardTitle className="text-2xl">Tailored Applications</CardTitle></CardHeader>
+              <CardContent><CardDescription className="text-base text-secondary text-pretty">Generate tailored cover letters with ATS insights and AI refinement to help your application stand out.</CardDescription></CardContent>
             </Card>
           </div>
         </div>
