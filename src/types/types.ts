@@ -18,6 +18,7 @@ export interface Profile {
   learning_hub_start_date: string | null;
   learning_hub_renewal_date: string | null;
   plan_renewal_date: string | null;
+  plan_started_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -67,7 +68,60 @@ export interface CoverLetter {
   ats_score: number | null;
   ats_reasons: string | null;
   cv_summary: string | null;
+  job_title: string | null;
+  application_status: ApplicationStatus;
+  reminder_interval: ApplicationReminderInterval;
+  next_reminder_at: string | null;
   created_at: string;
+}
+
+export type ApplicationStatus = 'Applied' | 'In Progress' | 'Interview' | 'Offer Received' | 'Taken';
+export type ApplicationReminderInterval = 'daily' | 'every_2_days' | 'every_3_days' | null;
+
+export interface ApplicationNotification {
+  id: string;
+  user_id: string;
+  cover_letter_id: string;
+  role_name: string;
+  application_status: ApplicationStatus;
+  read_at: string | null;
+  created_at: string;
+}
+
+export type MockInterviewSessionStatus = 'starting' | 'active' | 'ended' | 'failed';
+
+export interface MockInterviewFeedbackReport {
+  overall_summary: string;
+  strengths: string[];
+  areas_to_improve: string[];
+  recommended_next_steps: string[];
+}
+
+export interface MockInterviewSession {
+  id: string;
+  user_id: string;
+  cover_letter_id: string | null;
+  role_name: string;
+  company_name: string | null;
+  interviewer_name: string;
+  tavus_conversation_id: string | null;
+  tavus_conversation_url: string | null;
+  status: MockInterviewSessionStatus;
+  started_at: string;
+  ended_at: string | null;
+  duration_seconds: number | null;
+  feedback_report: MockInterviewFeedbackReport | null;
+  created_at: string;
+}
+
+export interface MockInterviewUsage {
+  plan: UserPlan;
+  allowed: boolean;
+  is_trial: boolean;
+  used: number;
+  limit: number | null;
+  remaining: number | null;
+  period_start: string | null;
 }
 
 export interface ChatMessage {

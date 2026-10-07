@@ -21,3 +21,9 @@ verify_jwt = false
 
 [functions.paystack-reinstate-subscription]
 verify_jwt = false
+
+[functions.process-application-reminders]
+verify_jwt = false
+
+[functions.mock-interview]
+verify_jwt = true

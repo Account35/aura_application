@@ -9,6 +9,7 @@ import HistoryDetailPage from './pages/HistoryDetailPage';
 import SettingsPage from './pages/SettingsPage';
 import LearningHubPage from './pages/LearningHubPage';
 import PlansPage from './pages/PlansPage';
+import MockInterviewPage from './pages/MockInterviewPage';
 import type { ReactNode } from 'react';
 
 export interface RouteConfig {
@@ -53,6 +54,11 @@ const routes: RouteConfig[] = [
     name: 'CV Builder',
     path: '/cv-builder',
     element: <CVBuilderPage />,
+  },
+  {
+    name: 'Mock Interview',
+    path: '/mock-interview',
+    element: <MockInterviewPage />,
   },
   {
     name: 'History',

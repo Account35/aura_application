@@ -72,6 +72,8 @@ const PLANS: PlanConfig[] = [
       'Unlimited generations',
       '3 AI refinement messages per cover letter',
       'ATS score visible (reasons blurred)',
+      '5 mock interview sessions per month',
+      'Optional Learning Hub add-on: R50 for 2 months or R250/year',
     ],
   },
   {
@@ -80,7 +82,7 @@ const PLANS: PlanConfig[] = [
     icon: <Sparkles className="w-5 h-5" />,
     description: 'Start with a 5-day trial',
     pricing: {
-      annual: { display: 'R300', subtext: 'per year', kobo: 30000 },
+      annual: { display: 'R600', subtext: 'per year', kobo: 60000 },
     },
     billingOptions: ['annual'],
     highlight: true,
@@ -88,6 +90,9 @@ const PLANS: PlanConfig[] = [
       'Unlimited generations',
       'Unlimited AI chat',
       'Full ATS score with all reasons',
+      'Unlimited mock interview sessions',
+      'Learning Hub included; R100 for 2 months or R500/year when purchased as an add-on',
+      'Full post-interview AI feedback report',
     ],
   },
 ];

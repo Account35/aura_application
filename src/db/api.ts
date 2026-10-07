@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import type { Profile, CoverLetter, ChatMessage, CVBuilderData, CVBuilderProfile } from '@/types/types';
+import type { Profile, CoverLetter, ChatMessage, CVBuilderData, CVBuilderProfile, ApplicationNotification, ApplicationReminderInterval, MockInterviewSession, MockInterviewUsage } from '@/types/types';
 
 // Profile operations
 export async function getProfile(userId: string): Promise<Profile | null> {
@@ -73,6 +73,7 @@ export async function createCoverLetter(
   userId: string,
   data: {
     content: string;
+    job_title?: string;
     job_description: string;
     cv_content: string;
     ats_score?: number;
@@ -85,6 +86,7 @@ export async function createCoverLetter(
     .insert({
       user_id: userId,
       content: data.content,
+      job_title: data.job_title || null,
       job_description: data.job_description,
       cv_content: data.cv_content,
       ats_score: data.ats_score || null,
@@ -115,6 +117,193 @@ export async function getCoverLetters(userId: string): Promise<CoverLetter[]> {
   }
 
   return Array.isArray(data) ? data : [];
+}
+
+export async function updateCoverLetterStatus(
+  id: string,
+  status: CoverLetter['application_status'],
+  reminderInterval: ApplicationReminderInterval
+): Promise<boolean> {
+  const days = reminderInterval === 'daily' ? 1 : reminderInterval === 'every_2_days' ? 2 : reminderInterval === 'every_3_days' ? 3 : null;
+  const { error } = await supabase
+    .from('cover_letters')
+    .update({
+      application_status: status,
+      next_reminder_at: days ? new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString() : null,
+    })
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error updating application status:', error);
+    return false;
+  }
+  return true;
+}
+
+export async function updateApplicationReminder(
+  id: string,
+  interval: ApplicationReminderInterval
+): Promise<boolean> {
+  const days = interval === 'daily' ? 1 : interval === 'every_2_days' ? 2 : interval === 'every_3_days' ? 3 : null;
+  const { error } = await supabase
+    .from('cover_letters')
+    .update({
+      reminder_interval: interval,
+      next_reminder_at: days ? new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString() : null,
+    })
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error updating application reminder:', error);
+    return false;
+  }
+  return true;
+}
+
+export async function getApplicationNotifications(userId: string): Promise<ApplicationNotification[]> {
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const { data, error } = await supabase
+    .from('application_notifications')
+    .select('*')
+    .eq('user_id', userId)
+    .gte('created_at', sevenDaysAgo)
+    .order('created_at', { ascending: false })
+    .limit(50);
+
+  if (error) {
+    console.error('Error fetching application notifications:', error);
+    return [];
+  }
+  return (data ?? []) as ApplicationNotification[];
+}
+
+export async function markApplicationNotificationRead(id: string): Promise<boolean> {
+  const { error } = await supabase
+    .from('application_notifications')
+    .update({ read_at: new Date().toISOString() })
+    .eq('id', id);
+  if (error) {
+    console.error('Error marking application notification read:', error);
+    return false;
+  }
+  return true;
+}
+
+export async function getMockInterviewUsage(): Promise<MockInterviewUsage | null> {
+  const { data, error } = await supabase.rpc('get_mock_interview_usage');
+  if (error) {
+    console.error('Error fetching mock interview usage:', error);
+    return null;
+  }
+  return data as MockInterviewUsage | null;
+}
+
+export async function getMockInterviewSessions(userId: string): Promise<MockInterviewSession[]> {
+  const { data, error } = await supabase
+    .from('mock_interview_sessions')
+    .select('id,user_id,cover_letter_id,role_name,company_name,interviewer_name,tavus_conversation_id,tavus_conversation_url,status,started_at,ended_at,duration_seconds,feedback_report,created_at')
+    .eq('user_id', userId)
+    .in('status', ['active', 'ended'])
+    .order('created_at', { ascending: false });
+  if (error) {
+    console.error('Error fetching mock interview sessions:', error);
+    return [];
+  }
+  return (data ?? []) as MockInterviewSession[];
+}
+
+export async function getMockInterviewSession(id: string): Promise<MockInterviewSession | null> {
+  const { data, error } = await supabase
+    .from('mock_interview_sessions')
+    .select('id,user_id,cover_letter_id,role_name,company_name,interviewer_name,tavus_conversation_id,tavus_conversation_url,status,started_at,ended_at,duration_seconds,feedback_report,created_at')
+    .eq('id', id)
+    .maybeSingle();
+  if (error) {
+    console.error('Error fetching mock interview session:', error);
+    return null;
+  }
+  return data as MockInterviewSession | null;
+}
+
+export interface MockInterviewActionResult {
+  success?: boolean;
+  error?: string;
+  reportError?: string;
+  locked?: boolean;
+  reason?: 'plan_required' | 'limit_reached';
+  usage?: MockInterviewUsage;
+  session?: MockInterviewSession;
+}
+
+const mockInterviewServiceError = 'The mock interview service is temporarily unavailable. Please try again.';
+
+function getMockInterviewErrorMessage(value: unknown): string | null {
+  if (typeof value === 'string') {
+    const message = value.trim();
+    if (!message) return null;
+
+    try {
+      const parsed: unknown = JSON.parse(message);
+      if (parsed !== value) return getMockInterviewErrorMessage(parsed);
+    } catch {
+      // Non-JSON error text is handled below.
+    }
+
+    if (/<!doctype|<html\b|<body\b|<title\b/i.test(message)) return null;
+    return message;
+  }
+
+  if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    return getMockInterviewErrorMessage(record.error)
+      ?? getMockInterviewErrorMessage(record.message)
+      ?? getMockInterviewErrorMessage(record.details);
+  }
+
+  return null;
+}
+
+export async function runMockInterviewAction(
+  action: 'start' | 'end' | 'status',
+  payload: Record<string, unknown> = {}
+): Promise<MockInterviewActionResult | null> {
+  const { data, error } = await supabase.functions.invoke('mock-interview', {
+    body: { action, ...payload },
+  });
+  if (error) {
+    let responseBody: unknown;
+    if (error.context instanceof Response) {
+      const body = await error.context.clone().text().catch(() => '');
+      if (body) {
+        try {
+          responseBody = JSON.parse(body) as unknown;
+        } catch {
+          responseBody = body;
+        }
+      }
+    }
+    console.error(`Mock interview ${action} error:`, { message: error.message, responseBody });
+    return {
+      error: getMockInterviewErrorMessage(responseBody)
+        ?? getMockInterviewErrorMessage(error.message)
+        ?? mockInterviewServiceError,
+    };
+  }
+
+  if (data && typeof data === 'object' && ('error' in data || 'reportError' in data)) {
+    const result = data as MockInterviewActionResult;
+    return {
+      ...result,
+      ...(result.error !== undefined && {
+        error: getMockInterviewErrorMessage(result.error) ?? mockInterviewServiceError,
+      }),
+      ...(result.reportError !== undefined && {
+        reportError: getMockInterviewErrorMessage(result.reportError) ?? mockInterviewServiceError,
+      }),
+    };
+  }
+
+  return data as MockInterviewActionResult;
 }
 
 export async function getCoverLetterById(id: string): Promise<CoverLetter | null> {

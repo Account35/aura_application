@@ -124,7 +124,7 @@ function LockedScreen() {
     },
     {
       name: 'Career Accelerator',
-      basePrice: 'R300/year',
+      basePrice: 'R600/year',
       features: ['Unlimited generations', 'Unlimited AI chat', 'Full ATS score with reasons'],
       lhAddon: { twoMonths: 'R100 for 2 months', annual: 'R500/year' },
       highlighted: true,

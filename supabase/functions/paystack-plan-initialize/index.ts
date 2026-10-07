@@ -27,7 +27,7 @@ function getPlanAmount(planType: string, billingPeriod: string): number {
     return billingPeriod === 'annual' ? 30000 : 3000; // R300/year or R30/2mo
   }
   if (planType === 'career_accelerator') {
-    return 30000; // R300/year only
+    return 60000; // R600/year only
   }
   return 0;
 }

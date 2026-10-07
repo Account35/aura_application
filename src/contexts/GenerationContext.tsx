@@ -143,6 +143,7 @@ export function GenerationProvider({ children }: { children: React.ReactNode }) 
           // ── Step 4: Persist to DB ────────────────────────────────────────
           const letterId = await createCoverLetter(userId, {
             content: coverLetterContent,
+            job_title: jobTitle,
             job_description: jobDescription,
             cv_content: cvContent,
             ats_score: score ?? undefined,
