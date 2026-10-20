@@ -1017,10 +1017,10 @@ export default function CVBuilderPage() {
                       <Button variant="outline" onClick={() => window.print()}>
                         Print / Save as PDF
                       </Button>
-                      <Button variant="outline" onClick={() => downloadATSReadableCVAsPDF(generatedCV, fileNameBase)}>
+                      <Button variant="outline" onClick={() => downloadATSReadableCVAsPDF(cvData, fileNameBase)}>
                         Download as PDF
                       </Button>
-                      <Button variant="outline" onClick={() => downloadATSReadableCVAsWord(generatedCV, fileNameBase)}>
+                      <Button variant="outline" onClick={() => downloadATSReadableCVAsWord(cvData, fileNameBase)}>
                         Download as Word
                       </Button>
                     </div>
